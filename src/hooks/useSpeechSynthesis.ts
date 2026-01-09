@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 
 interface UseSpeechSynthesisOptions {
   rate?: number;
@@ -22,8 +22,31 @@ export function useSpeechSynthesis({
   onEnd,
   onError,
 }: UseSpeechSynthesisOptions = {}): SpeechSynthesisResult {
-  const isSpeakingRef = useRef(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+
+  // Load voices - they may not be immediately available
+  useEffect(() => {
+    if (!isSupported) return;
+
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length > 0) {
+        setVoices(availableVoices);
+      }
+    };
+
+    // Try to load immediately
+    loadVoices();
+
+    // Also listen for the voiceschanged event (required for some browsers)
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+
+    return () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+    };
+  }, [isSupported]);
 
   const speak = useCallback((text: string) => {
     if (!isSupported) {
@@ -38,43 +61,56 @@ export function useSpeechSynthesis({
     utterance.rate = rate;
     utterance.pitch = pitch;
 
-    // Set voice if specified
-    if (voice) {
-      const voices = window.speechSynthesis.getVoices();
-      const selectedVoice = voices.find(v => v.name === voice || v.lang === voice);
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+    // Set voice if specified, otherwise use first available voice
+    if (voices.length > 0) {
+      if (voice) {
+        const selectedVoice = voices.find(v => v.name === voice || v.lang === voice);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      } else {
+        // Use first English voice or default
+        const englishVoice = voices.find(v => v.lang.startsWith("en"));
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+        }
       }
     }
 
     utterance.onstart = () => {
-      isSpeakingRef.current = true;
+      setIsSpeaking(true);
     };
 
     utterance.onend = () => {
-      isSpeakingRef.current = false;
+      setIsSpeaking(false);
       onEnd?.();
     };
 
     utterance.onerror = (event) => {
-      isSpeakingRef.current = false;
-      onError?.(event.error);
+      setIsSpeaking(false);
+      // Don't report "interrupted" as an error - it's expected when canceling
+      if (event.error !== "interrupted") {
+        onError?.(event.error);
+      }
     };
 
-    window.speechSynthesis.speak(utterance);
-  }, [rate, pitch, voice, onEnd, onError, isSupported]);
+    // Use setTimeout to work around Chrome bug where speech doesn't start
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 50);
+  }, [rate, pitch, voice, voices, onEnd, onError, isSupported]);
 
   const stop = useCallback(() => {
     if (isSupported) {
       window.speechSynthesis.cancel();
-      isSpeakingRef.current = false;
+      setIsSpeaking(false);
     }
   }, [isSupported]);
 
   return {
     speak,
     stop,
-    isSpeaking: isSpeakingRef.current,
+    isSpeaking,
     isSupported,
   };
 }
