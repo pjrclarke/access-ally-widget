@@ -6,6 +6,7 @@ import { HowItWorksSection } from "@/components/sections/HowItWorksSection";
 import { PricingSection } from "@/components/sections/PricingSection";
 import { FAQSection } from "@/components/sections/FAQSection";
 import { CTASection } from "@/components/sections/CTASection";
+import { AccessibilityWidget } from "@/components/widget/AccessibilityWidget";
 
 const Index = () => {
   return (
@@ -20,6 +21,9 @@ const Index = () => {
         <CTASection />
       </main>
       <Footer />
+      
+      {/* Accessibility Widget Demo */}
+      <AccessibilityWidget />
     </div>
   );
 };
