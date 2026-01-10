@@ -70,39 +70,39 @@ const highlights = [
 
 export function FeaturesSection() {
   return (
-    <section id="features" className="py-20 md:py-32">
-      <div className="container">
+    <section id="features" className="py-12 md:py-32">
+      <div className="container px-4 sm:px-6">
         {/* Section header */}
-        <div className="max-w-3xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        <div className="max-w-3xl mx-auto text-center mb-10 md:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">
             Powerful Features for{" "}
             <span className="text-gradient-primary">Enhanced Accessibility</span>
           </h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground">
             Tools to help your users navigate, understand, and interact with your content more easily—powered by AI.
           </p>
         </div>
 
         {/* Feature grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-16">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-10 md:mb-16">
           {features.map((feature, index) => (
             <Card 
               key={feature.title} 
               className="group relative overflow-hidden border-border/50 hover:border-primary/50 transition-all duration-300 hover:shadow-lg"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <CardContent className="p-6">
-                <div className={`inline-flex h-12 w-12 items-center justify-center rounded-lg mb-4 ${
+              <CardContent className="p-4 sm:p-6">
+                <div className={`inline-flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-lg mb-3 sm:mb-4 ${
                   feature.color === "primary" 
                     ? "bg-primary/10 text-primary" 
                     : "bg-accent/10 text-accent"
                 }`}>
-                  <feature.icon className="h-6 w-6" />
+                  <feature.icon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2 group-hover:text-primary transition-colors">
+                <h3 className="text-base sm:text-lg font-semibold mb-1.5 sm:mb-2 group-hover:text-primary transition-colors">
                   {feature.title}
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm sm:text-base text-muted-foreground">
                   {feature.description}
                 </p>
               </CardContent>
@@ -113,15 +113,15 @@ export function FeaturesSection() {
         </div>
 
         {/* Highlights */}
-        <div className="grid gap-6 md:grid-cols-3 p-8 rounded-2xl bg-secondary/50 border border-border">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-3 p-4 sm:p-6 md:p-8 rounded-2xl bg-secondary/50 border border-border">
           {highlights.map((item) => (
-            <div key={item.title} className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <item.icon className="h-5 w-5 text-primary" />
+            <div key={item.title} className="flex items-start gap-3 sm:gap-4">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <item.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div>
-                <h4 className="font-semibold mb-1">{item.title}</h4>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+              <div className="min-w-0">
+                <h4 className="font-semibold mb-0.5 sm:mb-1 text-sm sm:text-base">{item.title}</h4>
+                <p className="text-xs sm:text-sm text-muted-foreground">{item.description}</p>
               </div>
             </div>
           ))}
