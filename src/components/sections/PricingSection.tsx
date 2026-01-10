@@ -109,10 +109,10 @@ export function PricingSection() {
                 {/* Price */}
                 <div className="space-y-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold">${plan.price}</span>
+                    <span className="text-4xl font-bold">£{plan.price}</span>
                     {plan.originalPrice && (
                       <span className="text-lg text-muted-foreground line-through">
-                        ${plan.originalPrice}
+                        £{plan.originalPrice}
                       </span>
                     )}
                     <span className="text-muted-foreground">{plan.period}</span>
@@ -159,7 +159,7 @@ export function PricingSection() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
-            Need more AI interactions? Additional usage available at $0.005 per interaction.
+            Need more AI interactions? Additional usage available at £0.004 per interaction.
           </p>
         </div>
       </div>
