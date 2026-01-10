@@ -7,7 +7,7 @@ const plans = [
   {
     name: "Starter",
     description: "Perfect for small websites and blogs",
-    price: 29,
+    price: 49,
     period: "/month",
     originalPrice: null,
     features: [
@@ -24,9 +24,9 @@ const plans = [
   {
     name: "Business",
     description: "For growing companies",
-    price: 79,
+    price: 149,
     period: "/month",
-    originalPrice: 99,
+    originalPrice: 199,
     features: [
       "Up to 5 websites",
       "10,000 AI interactions/month",
@@ -42,7 +42,7 @@ const plans = [
   {
     name: "Enterprise",
     description: "For large organizations",
-    price: 249,
+    price: 399,
     period: "/month",
     originalPrice: null,
     features: [
