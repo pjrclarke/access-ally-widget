@@ -12,27 +12,43 @@ serve(async (req) => {
   }
 
   try {
-    const { message, pageContent, pageUrl } = await req.json();
+    const { message, pageContent, interactiveElements, pageUrl } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are an AI accessibility assistant embedded on a website. Your job is to help users understand and navigate the website content.
+    const systemPrompt = `You are an AI accessibility assistant embedded on a website. Your job is to help users understand and navigate the website content. You can also PERFORM ACTIONS on the page when users ask you to click, scroll to, or interact with elements.
 
 Current page URL: ${pageUrl || "Unknown"}
 
 Page content summary:
 ${pageContent || "No page content provided"}
 
+Interactive elements on this page:
+${interactiveElements || "No interactive elements found"}
+
+## ACTION COMMANDS
+When users ask you to click something, scroll to something, or interact with the page, include an action command in your response. Use these formats:
+- [ACTION:CLICK:button text or id] - Click an element
+- [ACTION:SCROLL:section name or id] - Scroll to an element  
+- [ACTION:FOCUS:input name or id] - Focus an input field
+- [ACTION:FILL:input name:value to enter] - Fill an input field
+
+Examples:
+- User: "Click the pricing button" → "I'll click that for you. [ACTION:CLICK:Pricing]"
+- User: "Scroll to the FAQ section" → "Scrolling to FAQ now. [ACTION:SCROLL:FAQ]"
+- User: "Go to contact" → "Taking you to contact. [ACTION:SCROLL:Contact]"
+
 Guidelines:
 - Be concise and helpful
 - Focus on answering questions about the page content
-- If asked to navigate, describe where the user should look or what action to take
+- When asked to navigate or click, use the ACTION commands above
 - Use simple, clear language that's easy for screen readers
 - If you don't know something, say so honestly
-- Keep responses under 150 words unless more detail is needed`;
+- Keep responses under 150 words unless more detail is needed
+- Always confirm what action you're taking when you use an ACTION command`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
