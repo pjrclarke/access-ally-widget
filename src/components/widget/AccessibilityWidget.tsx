@@ -35,8 +35,20 @@ import {
   ChevronUp,
   Download,
   FileJson,
-  FileText
+  FileText,
+  Mail
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
@@ -130,6 +142,9 @@ export function AccessibilityWidget() {
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
   const [readingGuideY, setReadingGuideY] = useState(0);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -283,6 +298,50 @@ export function AccessibilityWidget() {
         break;
     }
   }, []);
+
+  const sendAuditEmail = useCallback(async () => {
+    if (!emailAddress.trim() || !auditResult || isSendingEmail) return;
+    
+    setIsSendingEmail(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-audit-report`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            recipientEmail: emailAddress.trim(),
+            auditResult,
+            pageUrl: window.location.href,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send email");
+      }
+
+      toast({
+        title: "Report Sent!",
+        description: `Audit report sent to ${emailAddress}`,
+      });
+      setEmailDialogOpen(false);
+      setEmailAddress("");
+    } catch (error) {
+      toast({
+        title: "Failed to send",
+        description: error instanceof Error ? error.message : "Could not send email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  }, [emailAddress, auditResult, isSendingEmail, toast]);
 
   const sendMessage = useCallback(async (messageText: string) => {
     if (!messageText.trim() || isLoading) return;
@@ -1228,7 +1287,7 @@ export function AccessibilityWidget() {
                     <Download className="h-4 w-4 text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground">Export Report</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -1248,6 +1307,83 @@ export function AccessibilityWidget() {
                       JSON
                     </Button>
                   </div>
+                  
+                  {/* Email Report */}
+                  <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Email to Developer
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Send Audit Report</DialogTitle>
+                        <DialogDescription>
+                          Send a detailed HTML report to your developer's email address.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Developer Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="developer@example.com"
+                            value={emailAddress}
+                            onChange={(e) => setEmailAddress(e.target.value)}
+                          />
+                        </div>
+                        <div className="rounded-lg bg-secondary/50 p-3 space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Score:</span>
+                            <span className={cn(
+                              "font-medium",
+                              auditResult.score >= 80 ? "text-success" :
+                              auditResult.score >= 50 ? "text-warning" : "text-destructive"
+                            )}>
+                              {auditResult.score}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Issues:</span>
+                            <span className="font-medium">{auditResult.issues.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Page:</span>
+                            <span className="font-medium text-xs truncate max-w-[180px]">{window.location.pathname}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <DialogFooter className="gap-2 sm:gap-0">
+                        <DialogClose asChild>
+                          <Button variant="outline" size="sm">Cancel</Button>
+                        </DialogClose>
+                        <Button 
+                          size="sm"
+                          onClick={sendAuditEmail}
+                          disabled={!emailAddress.trim() || isSendingEmail}
+                          className="bg-gradient-primary hover:opacity-90"
+                        >
+                          {isSendingEmail ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4 mr-2" />
+                              Send Report
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 {/* Re-scan Button */}

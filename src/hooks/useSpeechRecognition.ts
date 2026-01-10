@@ -42,6 +42,7 @@ interface SpeechRecognitionInstance {
   onresult: ((event: SpeechRecognitionEventType) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEventType) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
   start: () => void;
   stop: () => void;
   abort: () => void;
@@ -57,6 +58,16 @@ export function useSpeechRecognition({
   const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  
+  // Store callbacks in refs to avoid recreating recognition on callback changes
+  const onResultRef = useRef(onResult);
+  const onErrorRef = useRef(onError);
+  
+  // Keep refs updated
+  useEffect(() => {
+    onResultRef.current = onResult;
+    onErrorRef.current = onError;
+  }, [onResult, onError]);
 
   useEffect(() => {
     // Check for browser support
@@ -70,6 +81,10 @@ export function useSpeechRecognition({
       recognition.continuous = continuous;
       recognition.interimResults = true;
       recognition.lang = language;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
 
       recognition.onresult = (event: SpeechRecognitionEventType) => {
         let finalTranscript = "";
@@ -87,16 +102,16 @@ export function useSpeechRecognition({
         const currentTranscript = finalTranscript || interimTranscript;
         setTranscript(currentTranscript);
 
-        if (finalTranscript && onResult) {
-          onResult(finalTranscript);
+        if (finalTranscript && onResultRef.current) {
+          onResultRef.current(finalTranscript);
         }
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
-        if (onError) {
-          onError(event.error);
+        if (onErrorRef.current) {
+          onErrorRef.current(event.error);
         }
       };
 
@@ -114,14 +129,14 @@ export function useSpeechRecognition({
         recognitionRef.current.abort();
       }
     };
-  }, [continuous, language, onResult, onError]);
+  }, [continuous, language]); // Removed onResult and onError from deps
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
       setTranscript("");
       try {
         recognitionRef.current.start();
-        setIsListening(true);
+        // Don't set isListening here - let onstart handle it
       } catch (error) {
         console.error("Failed to start speech recognition:", error);
       }
