@@ -257,3 +257,76 @@
   word-spacing: 0.1em !important;
   line-height: 1.8 !important;
 }
+
+/* Text Scaling - applies to ALL text using !important */
+.a11y-text-75 {
+  font-size: 75% !important;
+}
+.a11y-text-75 * {
+  font-size: inherit !important;
+}
+.a11y-text-75 h1, .a11y-text-75 h2, .a11y-text-75 h3, .a11y-text-75 h4, .a11y-text-75 h5, .a11y-text-75 h6 {
+  font-size: revert !important;
+  transform: scale(0.75);
+  transform-origin: left top;
+}
+
+.a11y-text-125 {
+  font-size: 125% !important;
+}
+.a11y-text-125 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
+  font-size: 125% !important;
+}
+
+.a11y-text-150 {
+  font-size: 150% !important;
+}
+.a11y-text-150 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
+  font-size: 150% !important;
+}
+
+.a11y-text-175 {
+  font-size: 175% !important;
+}
+.a11y-text-175 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
+  font-size: 175% !important;
+}
+
+.a11y-text-200 {
+  font-size: 200% !important;
+}
+.a11y-text-200 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
+  font-size: 200% !important;
+}
+
+/* Keep widget text at normal size */
+.a11y-text-125 [role="dialog"],
+.a11y-text-150 [role="dialog"],
+.a11y-text-175 [role="dialog"],
+.a11y-text-200 [role="dialog"],
+.a11y-text-75 [role="dialog"] {
+  font-size: 16px !important;
+}
+.a11y-text-125 [role="dialog"] *,
+.a11y-text-150 [role="dialog"] *,
+.a11y-text-175 [role="dialog"] *,
+.a11y-text-200 [role="dialog"] *,
+.a11y-text-75 [role="dialog"] * {
+  font-size: revert !important;
+}
+
+/* Color Blindness Correction Filters */
+/* Protanopia - Red-blind (red-green color blindness, red cone missing) */
+.a11y-protanopia {
+  filter: url('#protanopia-filter') !important;
+}
+
+/* Deuteranopia - Green-blind (red-green color blindness, green cone missing) */
+.a11y-deuteranopia {
+  filter: url('#deuteranopia-filter') !important;
+}
+
+/* Tritanopia - Blue-blind (blue-yellow color blindness, blue cone missing) */
+.a11y-tritanopia {
+  filter: url('#tritanopia-filter') !important;
+}
