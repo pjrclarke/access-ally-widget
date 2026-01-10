@@ -175,8 +175,18 @@ export function AccessibilityWidget() {
     onError: (error) => console.error("Speech synthesis error:", error),
   });
 
+  // Ref to hold sendMessage for voice callback (avoids circular dependency)
+  const sendMessageRef = useRef<(text: string) => void>(() => {});
+
   const handleVoiceResult = useCallback((transcript: string) => {
     setInputValue(transcript);
+  }, []);
+
+  // Auto-send after natural pause
+  const handleVoiceFinalResult = useCallback((transcript: string) => {
+    if (transcript.trim()) {
+      sendMessageRef.current(transcript);
+    }
   }, []);
 
   const { 
@@ -187,6 +197,8 @@ export function AccessibilityWidget() {
     isSupported: isVoiceSupported 
   } = useSpeechRecognition({
     onResult: handleVoiceResult,
+    onFinalResult: handleVoiceFinalResult,
+    autoSendDelay: 1500, // 1.5 seconds of silence triggers send
     onError: (error) => {
       toast({
         title: "Voice Error",
@@ -459,6 +471,11 @@ export function AccessibilityWidget() {
       setIsLoading(false);
     }
   }, [isLoading, getPageContext, executeAction, isSpeechEnabled, speak, toast]);
+
+  // Keep sendMessageRef updated
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
