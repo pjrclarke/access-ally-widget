@@ -25,12 +25,20 @@ import {
   AlignVerticalSpaceAround,
   Space,
   ImageOff,
-  Focus
+  Focus,
+  ClipboardCheck,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useToast } from "@/hooks/use-toast";
+import { useAccessibilityAudit, AuditIssue } from "./useAccessibilityAudit";
 
 // LocalStorage key for persisting settings
 const STORAGE_KEY = "a11y-widget-settings";
@@ -108,7 +116,7 @@ interface Message {
   content: string;
 }
 
-type TabType = "chat" | "visual";
+type TabType = "chat" | "visual" | "audit";
 
 export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -118,9 +126,13 @@ export function AccessibilityWidget() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
   const [readingGuideY, setReadingGuideY] = useState(0);
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Accessibility audit hook
+  const { isScanning, result: auditResult, runAudit, clearResult: clearAuditResult } = useAccessibilityAudit();
   
   // Visual accessibility settings - initialize from localStorage
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
@@ -728,6 +740,20 @@ export function AccessibilityWidget() {
             <Settings2 className="h-4 w-4" />
             Visual
           </button>
+          <button
+            onClick={() => setActiveTab("audit")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors",
+              activeTab === "audit" 
+                ? "text-primary border-b-2 border-primary" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-selected={activeTab === "audit"}
+            role="tab"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Audit
+          </button>
         </div>
 
         {/* Chat Tab Content */}
@@ -1068,6 +1094,152 @@ export function AccessibilityWidget() {
                 <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+0</kbd> Reset All</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Audit Tab Content */}
+        {activeTab === "audit" && (
+          <div className="h-[280px] overflow-y-auto p-4 space-y-4">
+            {!auditResult ? (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <ClipboardCheck className="h-12 w-12 mb-4 text-muted-foreground opacity-30" />
+                <h3 className="font-medium mb-2">Accessibility Audit</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Scan this page for common WCAG accessibility issues
+                </p>
+                <Button 
+                  onClick={runAudit} 
+                  disabled={isScanning}
+                  className="bg-gradient-primary hover:opacity-90"
+                >
+                  {isScanning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Run Audit
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-4 max-w-[280px]">
+                  This tool checks for common issues. A full audit requires manual review.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Score Card */}
+                <div className="p-4 rounded-lg bg-secondary/50 border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Accessibility Score</span>
+                    <span className={cn(
+                      "text-2xl font-bold",
+                      auditResult.score >= 80 ? "text-success" :
+                      auditResult.score >= 50 ? "text-warning" : "text-destructive"
+                    )}>
+                      {auditResult.score}%
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full transition-all duration-500",
+                        auditResult.score >= 80 ? "bg-success" :
+                        auditResult.score >= 50 ? "bg-warning" : "bg-destructive"
+                      )}
+                      style={{ width: `${auditResult.score}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {auditResult.passedChecks}/{auditResult.totalChecks} checks passed
+                  </p>
+                </div>
+
+                {/* Issues List */}
+                {auditResult.issues.length > 0 ? (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      Issues Found ({auditResult.issues.length})
+                    </h4>
+                    {auditResult.issues.map((issue) => (
+                      <div 
+                        key={issue.id}
+                        className="border border-border rounded-lg overflow-hidden"
+                      >
+                        <button
+                          onClick={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)}
+                          className="w-full p-3 flex items-start gap-3 text-left hover:bg-secondary/50 transition-colors"
+                        >
+                          {issue.type === "error" ? (
+                            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                          ) : issue.type === "warning" ? (
+                            <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                          ) : (
+                            <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium truncate">{issue.title}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground shrink-0">
+                                {issue.wcagCriteria}
+                              </span>
+                            </div>
+                          </div>
+                          {expandedIssue === issue.id ? (
+                            <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                        </button>
+                        {expandedIssue === issue.id && (
+                          <div className="px-3 pb-3 pt-0 space-y-2 border-t border-border bg-secondary/30">
+                            <p className="text-xs text-muted-foreground pt-2">{issue.description}</p>
+                            <div className="text-xs">
+                              <span className="font-medium text-foreground">How to fix: </span>
+                              <span className="text-muted-foreground">{issue.howToFix}</span>
+                            </div>
+                            {issue.element && (
+                              <code className="block text-[10px] px-2 py-1 bg-secondary rounded text-muted-foreground font-mono">
+                                {issue.element}
+                              </code>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <CheckCircle2 className="h-10 w-10 text-success mb-2" />
+                    <p className="font-medium text-sm">No issues found!</p>
+                    <p className="text-xs text-muted-foreground">This page passes basic accessibility checks.</p>
+                  </div>
+                )}
+
+                {/* Re-scan Button */}
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={clearAuditResult}
+                    className="flex-1"
+                  >
+                    Clear
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={runAudit}
+                    disabled={isScanning}
+                    className="flex-1"
+                  >
+                    {isScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : "Re-scan"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

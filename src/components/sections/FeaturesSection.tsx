@@ -76,10 +76,10 @@ export function FeaturesSection() {
         <div className="max-w-3xl mx-auto text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             Powerful Features for{" "}
-            <span className="text-gradient-primary">Complete Accessibility</span>
+            <span className="text-gradient-primary">Enhanced Accessibility</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Everything your users need to navigate, understand, and interact with your website—powered by cutting-edge AI.
+            Tools to help your users navigate, understand, and interact with your content more easily—powered by AI.
           </p>
         </div>
 
