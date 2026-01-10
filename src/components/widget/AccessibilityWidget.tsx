@@ -21,7 +21,9 @@ import {
   BookOpen,
   Ruler,
   Eye,
-  Keyboard
+  Keyboard,
+  AlignVerticalSpaceAround,
+  Space
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -35,6 +37,8 @@ type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
 
 interface AccessibilitySettings {
   textScale: number;
+  lineHeight: number;
+  letterSpacing: number;
   contrastMode: "normal" | "high" | "inverted";
   dyslexiaFont: boolean;
   readingGuide: boolean;
@@ -43,6 +47,8 @@ interface AccessibilitySettings {
 
 const DEFAULT_SETTINGS: AccessibilitySettings = {
   textScale: 100,
+  lineHeight: 100,
+  letterSpacing: 0,
   contrastMode: "normal",
   dyslexiaFont: false,
   readingGuide: false,
@@ -114,7 +120,7 @@ export function AccessibilityWidget() {
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
   
   // Destructure for convenience
-  const { textScale, contrastMode, dyslexiaFont, readingGuide, colorBlindMode } = settings;
+  const { textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode } = settings;
   
   // Update a single setting and persist
   const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
@@ -326,6 +332,24 @@ export function AccessibilityWidget() {
       root.style.removeProperty("--a11y-text-scale");
     }
     
+    // Line height
+    if (lineHeight !== 100) {
+      root.style.setProperty("--a11y-line-height", String(lineHeight / 100));
+      root.classList.add("a11y-line-height-scaled");
+    } else {
+      root.style.removeProperty("--a11y-line-height");
+      root.classList.remove("a11y-line-height-scaled");
+    }
+    
+    // Letter spacing
+    if (letterSpacing !== 0) {
+      root.style.setProperty("--a11y-letter-spacing", `${letterSpacing / 100}em`);
+      root.classList.add("a11y-letter-spacing-scaled");
+    } else {
+      root.style.removeProperty("--a11y-letter-spacing");
+      root.classList.remove("a11y-letter-spacing-scaled");
+    }
+    
     // Contrast modes
     root.classList.remove("a11y-high-contrast", "a11y-inverted");
     if (contrastMode === "high") {
@@ -359,11 +383,13 @@ export function AccessibilityWidget() {
       root.classList.remove(
         "a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", 
         "a11y-reading-guide-active", "a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia",
-        "a11y-text-scaled"
+        "a11y-text-scaled", "a11y-line-height-scaled", "a11y-letter-spacing-scaled"
       );
       root.style.removeProperty("--a11y-text-scale");
+      root.style.removeProperty("--a11y-line-height");
+      root.style.removeProperty("--a11y-letter-spacing");
     };
-  }, [textScale, contrastMode, dyslexiaFont, readingGuide, colorBlindMode]);
+  }, [textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode]);
 
   // Reading guide mouse tracking
   useEffect(() => {
@@ -383,7 +409,7 @@ export function AccessibilityWidget() {
     saveSettings(newSettings);
   };
 
-  const hasCustomSettings = textScale !== 100 || contrastMode !== "normal" || dyslexiaFont || readingGuide || colorBlindMode !== "normal";
+  const hasCustomSettings = textScale !== 100 || lineHeight !== 100 || letterSpacing !== 0 || contrastMode !== "normal" || dyslexiaFont || readingGuide || colorBlindMode !== "normal";
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -692,6 +718,53 @@ export function AccessibilityWidget() {
               </div>
             </div>
 
+            {/* Line Height */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlignVerticalSpaceAround className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Line Spacing</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{lineHeight}%</span>
+              </div>
+              <Slider
+                value={[lineHeight]}
+                onValueChange={(value) => updateSetting("lineHeight", value[0])}
+                min={100}
+                max={200}
+                step={25}
+                className="w-full"
+                aria-label="Line spacing"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Normal</span>
+                <span className="font-medium">Spacious</span>
+              </div>
+            </div>
+
+            {/* Letter Spacing */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Space className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Letter Spacing</span>
+                </div>
+                <span className="text-sm text-muted-foreground">+{letterSpacing}%</span>
+              </div>
+              <Slider
+                value={[letterSpacing]}
+                onValueChange={(value) => updateSetting("letterSpacing", value[0])}
+                min={0}
+                max={20}
+                step={5}
+                className="w-full"
+                aria-label="Letter spacing"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Normal</span>
+                <span className="font-medium">Wide</span>
+              </div>
+            </div>
             {/* Contrast Mode */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
