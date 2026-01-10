@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { 
   Mic, 
   MicOff, 
@@ -16,12 +17,53 @@ import {
   Contrast,
   Settings2,
   MessageSquare,
-  RotateCcw
+  RotateCcw,
+  BookOpen,
+  Ruler
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useToast } from "@/hooks/use-toast";
+
+// LocalStorage key for persisting settings
+const STORAGE_KEY = "a11y-widget-settings";
+
+interface AccessibilitySettings {
+  textScale: number;
+  contrastMode: "normal" | "high" | "inverted";
+  dyslexiaFont: boolean;
+  readingGuide: boolean;
+}
+
+const DEFAULT_SETTINGS: AccessibilitySettings = {
+  textScale: 100,
+  contrastMode: "normal",
+  dyslexiaFont: false,
+  readingGuide: false,
+};
+
+// Load settings from localStorage
+function loadSettings(): AccessibilitySettings {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.warn("Failed to load accessibility settings:", e);
+  }
+  return DEFAULT_SETTINGS;
+}
+
+// Save settings to localStorage
+function saveSettings(settings: AccessibilitySettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch (e) {
+    console.warn("Failed to save accessibility settings:", e);
+  }
+}
 
 // Strip markdown formatting for speech
 function stripMarkdown(text: string): string {
@@ -57,13 +99,28 @@ export function AccessibilityWidget() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
+  const [readingGuideY, setReadingGuideY] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  // Visual accessibility settings
-  const [textScale, setTextScale] = useState(100);
-  const [contrastMode, setContrastMode] = useState<"normal" | "high" | "inverted">("normal");
+  // Visual accessibility settings - initialize from localStorage
+  const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
+  
+  // Destructure for convenience
+  const { textScale, contrastMode, dyslexiaFont, readingGuide } = settings;
+  
+  // Update a single setting and persist
+  const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
+    key: K, 
+    value: AccessibilitySettings[K]
+  ) => {
+    setSettings(prev => {
+      const newSettings = { ...prev, [key]: value };
+      saveSettings(newSettings);
+      return newSettings;
+    });
+  }, []);
 
   const { speak, stop: stopSpeaking } = useSpeechSynthesis({
     rate: 0.9,
@@ -272,20 +329,73 @@ export function AccessibilityWidget() {
       root.classList.add("a11y-inverted");
     }
     
+    // Dyslexia font
+    if (dyslexiaFont) {
+      root.classList.add("a11y-dyslexia-font");
+    } else {
+      root.classList.remove("a11y-dyslexia-font");
+    }
+    
+    // Reading guide
+    if (readingGuide) {
+      root.classList.add("a11y-reading-guide-active");
+    } else {
+      root.classList.remove("a11y-reading-guide-active");
+    }
+    
     return () => {
       // Cleanup on unmount
       document.body.style.fontSize = "";
-      root.classList.remove("a11y-high-contrast", "a11y-inverted");
+      root.classList.remove("a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", "a11y-reading-guide-active");
     };
-  }, [textScale, contrastMode]);
+  }, [textScale, contrastMode, dyslexiaFont, readingGuide]);
+
+  // Reading guide mouse tracking
+  useEffect(() => {
+    if (!readingGuide) return;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      setReadingGuideY(e.clientY);
+    };
+    
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [readingGuide]);
 
   const resetVisualSettings = () => {
-    setTextScale(100);
-    setContrastMode("normal");
+    const newSettings = { ...DEFAULT_SETTINGS };
+    setSettings(newSettings);
+    saveSettings(newSettings);
   };
+
+  const hasCustomSettings = textScale !== 100 || contrastMode !== "normal" || dyslexiaFont || readingGuide;
 
   return (
     <>
+      {/* Reading Guide Overlay */}
+      {readingGuide && (
+        <div 
+          className="fixed inset-0 pointer-events-none z-[9999]"
+          aria-hidden="true"
+        >
+          {/* Dark overlay above the reading line */}
+          <div 
+            className="absolute left-0 right-0 top-0 bg-black/40 transition-all duration-75"
+            style={{ height: Math.max(0, readingGuideY - 20) }}
+          />
+          {/* Clear reading strip */}
+          <div 
+            className="absolute left-0 right-0 h-10 border-y-2 border-primary/50"
+            style={{ top: Math.max(0, readingGuideY - 20) }}
+          />
+          {/* Dark overlay below the reading line */}
+          <div 
+            className="absolute left-0 right-0 bottom-0 bg-black/40 transition-all duration-75"
+            style={{ top: readingGuideY + 20 }}
+          />
+        </div>
+      )}
+    
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -462,9 +572,9 @@ export function AccessibilityWidget() {
 
         {/* Visual Tab Content */}
         {activeTab === "visual" && (
-          <div className="h-[280px] overflow-y-auto p-4 space-y-6">
+          <div className="h-[280px] overflow-y-auto p-4 space-y-5">
             {/* Text Size */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Type className="h-4 w-4 text-muted-foreground" />
@@ -474,7 +584,7 @@ export function AccessibilityWidget() {
               </div>
               <Slider
                 value={[textScale]}
-                onValueChange={(value) => setTextScale(value[0])}
+                onValueChange={(value) => updateSetting("textScale", value[0])}
                 min={75}
                 max={200}
                 step={25}
@@ -488,14 +598,14 @@ export function AccessibilityWidget() {
             </div>
 
             {/* Contrast Mode */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Contrast className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Contrast Mode</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
-                  onClick={() => setContrastMode("normal")}
+                  onClick={() => updateSetting("contrastMode", "normal")}
                   className={cn(
                     "px-3 py-2 text-sm rounded-lg border transition-all",
                     contrastMode === "normal"
@@ -507,7 +617,7 @@ export function AccessibilityWidget() {
                   Normal
                 </button>
                 <button
-                  onClick={() => setContrastMode("high")}
+                  onClick={() => updateSetting("contrastMode", "high")}
                   className={cn(
                     "px-3 py-2 text-sm rounded-lg border transition-all",
                     contrastMode === "high"
@@ -519,7 +629,7 @@ export function AccessibilityWidget() {
                   High
                 </button>
                 <button
-                  onClick={() => setContrastMode("inverted")}
+                  onClick={() => updateSetting("contrastMode", "inverted")}
                   className={cn(
                     "px-3 py-2 text-sm rounded-lg border transition-all",
                     contrastMode === "inverted"
@@ -533,20 +643,48 @@ export function AccessibilityWidget() {
               </div>
             </div>
 
+            {/* Dyslexia Font Toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <span className="text-sm font-medium">Dyslexia-Friendly Font</span>
+                  <p className="text-xs text-muted-foreground">Uses OpenDyslexic font</p>
+                </div>
+              </div>
+              <Switch
+                checked={dyslexiaFont}
+                onCheckedChange={(checked) => updateSetting("dyslexiaFont", checked)}
+                aria-label="Toggle dyslexia-friendly font"
+              />
+            </div>
+
+            {/* Reading Guide Toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <Ruler className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <span className="text-sm font-medium">Reading Guide</span>
+                  <p className="text-xs text-muted-foreground">Highlights current line</p>
+                </div>
+              </div>
+              <Switch
+                checked={readingGuide}
+                onCheckedChange={(checked) => updateSetting("readingGuide", checked)}
+                aria-label="Toggle reading guide"
+              />
+            </div>
+
             {/* Reset Button */}
             <Button
               variant="outline"
               onClick={resetVisualSettings}
               className="w-full"
-              disabled={textScale === 100 && contrastMode === "normal"}
+              disabled={!hasCustomSettings}
             >
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset to Defaults
             </Button>
-
-            <p className="text-xs text-muted-foreground text-center">
-              These settings affect the entire page and are applied immediately.
-            </p>
           </div>
         )}
 
