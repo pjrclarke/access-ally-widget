@@ -291,6 +291,48 @@
   font-size: revert !important;
 }
 
+/* Line Height Scaling */
+.a11y-line-height-scaled p,
+.a11y-line-height-scaled li,
+.a11y-line-height-scaled td,
+.a11y-line-height-scaled th,
+.a11y-line-height-scaled span,
+.a11y-line-height-scaled article,
+.a11y-line-height-scaled section {
+  line-height: calc(1.5 * var(--a11y-line-height, 1)) !important;
+}
+
+/* Exclude the accessibility widget */
+.a11y-line-height-scaled [role="dialog"],
+.a11y-line-height-scaled [role="dialog"] * {
+  line-height: revert !important;
+}
+
+/* Letter Spacing Scaling */
+.a11y-letter-spacing-scaled p,
+.a11y-letter-spacing-scaled li,
+.a11y-letter-spacing-scaled td,
+.a11y-letter-spacing-scaled th,
+.a11y-letter-spacing-scaled span,
+.a11y-letter-spacing-scaled article,
+.a11y-letter-spacing-scaled section,
+.a11y-letter-spacing-scaled h1,
+.a11y-letter-spacing-scaled h2,
+.a11y-letter-spacing-scaled h3,
+.a11y-letter-spacing-scaled h4,
+.a11y-letter-spacing-scaled h5,
+.a11y-letter-spacing-scaled h6 {
+  letter-spacing: var(--a11y-letter-spacing, 0) !important;
+  word-spacing: calc(var(--a11y-letter-spacing, 0) * 2) !important;
+}
+
+/* Exclude the accessibility widget */
+.a11y-letter-spacing-scaled [role="dialog"],
+.a11y-letter-spacing-scaled [role="dialog"] * {
+  letter-spacing: revert !important;
+  word-spacing: revert !important;
+}
+
 /* Color Blindness Correction Filters */
 /* Protanopia - Red-blind (red-green color blindness, red cone missing) */
 .a11y-protanopia {
