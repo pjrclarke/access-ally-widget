@@ -42,32 +42,32 @@ const faqs = [
 
 export function FAQSection() {
   return (
-    <section id="faq" className="py-20 md:py-32 bg-secondary/30">
-      <div className="container">
+    <section id="faq" className="py-12 md:py-32 bg-secondary/30">
+      <div className="container px-4 sm:px-6">
         {/* Section header */}
-        <div className="max-w-3xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+        <div className="max-w-3xl mx-auto text-center mb-10 md:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">
             Frequently Asked{" "}
             <span className="text-gradient-primary">Questions</span>
           </h2>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground">
             Everything you need to know about AccessibilityAI. Can't find what you're looking for? Contact our support team.
           </p>
         </div>
 
         {/* FAQ Accordion */}
         <div className="max-w-3xl mx-auto">
-          <Accordion type="single" collapsible className="space-y-4">
+          <Accordion type="single" collapsible className="space-y-3 sm:space-y-4">
             {faqs.map((faq, index) => (
               <AccordionItem 
                 key={index} 
                 value={`item-${index}`}
-                className="bg-card border border-border rounded-lg px-6 data-[state=open]:shadow-md transition-shadow"
+                className="bg-card border border-border rounded-lg px-4 sm:px-6 data-[state=open]:shadow-md transition-shadow"
               >
-                <AccordionTrigger className="text-left hover:no-underline py-4">
-                  <span className="font-medium">{faq.question}</span>
+                <AccordionTrigger className="text-left hover:no-underline py-3 sm:py-4">
+                  <span className="font-medium text-sm sm:text-base pr-2">{faq.question}</span>
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground pb-4">
+                <AccordionContent className="text-muted-foreground pb-3 sm:pb-4 text-sm sm:text-base">
                   {faq.answer}
                 </AccordionContent>
               </AccordionItem>
@@ -76,13 +76,13 @@ export function FAQSection() {
         </div>
 
         {/* CTA */}
-        <div className="mt-16 text-center">
-          <p className="text-muted-foreground mb-4">
+        <div className="mt-10 sm:mt-16 text-center">
+          <p className="text-muted-foreground mb-3 sm:mb-4 text-sm sm:text-base">
             Still have questions?
           </p>
           <a 
             href="#contact" 
-            className="inline-flex items-center gap-2 text-primary font-medium hover:underline"
+            className="inline-flex items-center gap-2 text-primary font-medium hover:underline text-sm sm:text-base"
           >
             Contact our team
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
