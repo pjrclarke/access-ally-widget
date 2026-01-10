@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Check, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Check } from "lucide-react";
 
 const plans = [
   {
@@ -9,7 +8,6 @@ const plans = [
     description: "Perfect for small websites and blogs",
     price: 49,
     period: "/month",
-    originalPrice: null,
     features: [
       "1 website",
       "1,000 AI interactions/month",
@@ -18,15 +16,13 @@ const plans = [
       "Text-to-speech",
       "Email support",
     ],
-    cta: "Start Free Trial",
-    popular: false,
+    cta: "Get Started",
   },
   {
     name: "Business",
     description: "For growing companies",
     price: 149,
     period: "/month",
-    originalPrice: 199,
     features: [
       "Up to 5 websites",
       "10,000 AI interactions/month",
@@ -36,15 +32,13 @@ const plans = [
       "Analytics dashboard",
       "Remove widget branding",
     ],
-    cta: "Start Free Trial",
-    popular: true,
+    cta: "Get Started",
   },
   {
     name: "Enterprise",
     description: "For large organizations",
     price: 399,
     period: "/month",
-    originalPrice: null,
     features: [
       "Unlimited websites",
       "Unlimited AI interactions",
@@ -56,7 +50,6 @@ const plans = [
       "SSO & advanced security",
     ],
     cta: "Contact Sales",
-    popular: false,
   },
 ];
 
@@ -71,7 +64,7 @@ export function PricingSection() {
             <span className="text-gradient-primary">Pricing</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Start with a 14-day free trial. No credit card required. Cancel anytime.
+            Choose the plan that fits your needs. Cancel anytime.
           </p>
         </div>
 
@@ -80,26 +73,8 @@ export function PricingSection() {
           {plans.map((plan) => (
             <Card 
               key={plan.name}
-              className={cn(
-                "relative overflow-hidden transition-all duration-300 hover:shadow-xl",
-                plan.popular 
-                  ? "border-primary shadow-lg scale-105 md:scale-110" 
-                  : "border-border/50 hover:border-primary/50"
-              )}
+              className="relative overflow-hidden transition-all duration-300 hover:shadow-xl border-border/50 hover:border-primary/50"
             >
-              {plan.popular && (
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary" />
-              )}
-              
-              {plan.popular && (
-                <div className="absolute top-4 right-4">
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                    <Sparkles className="h-3 w-3" />
-                    Most Popular
-                  </span>
-                </div>
-              )}
-
               <CardHeader className="pb-4">
                 <h3 className="text-xl font-bold">{plan.name}</h3>
                 <p className="text-sm text-muted-foreground">{plan.description}</p>
@@ -110,11 +85,6 @@ export function PricingSection() {
                 <div className="space-y-1">
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold">£{plan.price}</span>
-                    {plan.originalPrice && (
-                      <span className="text-lg text-muted-foreground line-through">
-                        £{plan.originalPrice}
-                      </span>
-                    )}
                     <span className="text-muted-foreground">{plan.period}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">billed monthly</p>
@@ -132,13 +102,8 @@ export function PricingSection() {
 
                 {/* CTA */}
                 <Button 
-                  className={cn(
-                    "w-full",
-                    plan.popular 
-                      ? "bg-gradient-primary hover:opacity-90" 
-                      : ""
-                  )}
-                  variant={plan.popular ? "default" : "outline"}
+                  className="w-full"
+                  variant="outline"
                   size="lg"
                 >
                   {plan.cta}
@@ -155,7 +120,7 @@ export function PricingSection() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
             <span className="text-sm font-medium">
-              14-day free trial • Cancel anytime • No credit card required
+              30-day money-back guarantee
             </span>
           </div>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
