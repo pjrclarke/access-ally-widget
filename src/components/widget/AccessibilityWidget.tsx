@@ -317,10 +317,13 @@ export function AccessibilityWidget() {
   useEffect(() => {
     const root = document.documentElement;
     
-    // Text scaling - apply to html element for rem-based scaling
-    root.classList.remove("a11y-text-75", "a11y-text-125", "a11y-text-150", "a11y-text-175", "a11y-text-200");
+    // Text scaling - uses CSS custom property for smooth scaling
+    root.classList.remove("a11y-text-scaled");
     if (textScale !== 100) {
-      root.classList.add(`a11y-text-${textScale}`);
+      root.style.setProperty("--a11y-text-scale", String(textScale / 100));
+      root.classList.add("a11y-text-scaled");
+    } else {
+      root.style.removeProperty("--a11y-text-scale");
     }
     
     // Contrast modes
@@ -356,8 +359,9 @@ export function AccessibilityWidget() {
       root.classList.remove(
         "a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", 
         "a11y-reading-guide-active", "a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia",
-        "a11y-text-75", "a11y-text-125", "a11y-text-150", "a11y-text-175", "a11y-text-200"
+        "a11y-text-scaled"
       );
+      root.style.removeProperty("--a11y-text-scale");
     };
   }, [textScale, contrastMode, dyslexiaFont, readingGuide, colorBlindMode]);
 
@@ -676,15 +680,15 @@ export function AccessibilityWidget() {
               <Slider
                 value={[textScale]}
                 onValueChange={(value) => updateSetting("textScale", value[0])}
-                min={75}
-                max={200}
-                step={25}
+                min={100}
+                max={150}
+                step={10}
                 className="w-full"
                 aria-label="Text size"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>A</span>
-                <span className="text-lg font-medium">A</span>
+                <span>Normal</span>
+                <span className="font-medium">Large</span>
               </div>
             </div>
 
