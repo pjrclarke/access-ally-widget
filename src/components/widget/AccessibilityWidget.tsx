@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { 
   Mic, 
   MicOff, 
@@ -10,20 +11,48 @@ import {
   VolumeX,
   Accessibility,
   Loader2,
-  Minimize2
+  Minimize2,
+  Type,
+  Contrast,
+  Settings2,
+  MessageSquare,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useToast } from "@/hooks/use-toast";
 
+// Strip markdown formatting for speech
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')  // Bold **text**
+    .replace(/\*([^*]+)\*/g, '$1')       // Italic *text*
+    .replace(/__([^_]+)__/g, '$1')       // Bold __text__
+    .replace(/_([^_]+)_/g, '$1')         // Italic _text_
+    .replace(/~~([^~]+)~~/g, '$1')       // Strikethrough
+    .replace(/`([^`]+)`/g, '$1')         // Inline code
+    .replace(/```[\s\S]*?```/g, '')      // Code blocks
+    .replace(/#{1,6}\s+/g, '')           // Headers
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1') // Images
+    .replace(/^\s*[-*+]\s+/gm, '')       // List items
+    .replace(/^\s*\d+\.\s+/gm, '')       // Numbered lists
+    .replace(/>\s+/g, '')                 // Blockquotes
+    .replace(/\n{2,}/g, '. ')            // Multiple newlines to periods
+    .replace(/\n/g, ' ')                  // Single newlines to spaces
+    .trim();
+}
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+type TabType = "chat" | "visual";
+
 export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,6 +60,10 @@ export function AccessibilityWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Visual accessibility settings
+  const [textScale, setTextScale] = useState(100);
+  const [contrastMode, setContrastMode] = useState<"normal" | "high" | "inverted">("normal");
 
   const { speak, stop: stopSpeaking } = useSpeechSynthesis({
     rate: 0.9,
@@ -169,9 +202,9 @@ export function AccessibilityWidget() {
         }
       }
 
-      // Speak the response if enabled
+      // Speak the response if enabled (strip markdown for cleaner speech)
       if (isSpeechEnabled && assistantContent) {
-        speak(assistantContent);
+        speak(stripMarkdown(assistantContent));
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -217,6 +250,40 @@ export function AccessibilityWidget() {
     setIsSpeechEnabled(!isSpeechEnabled);
   };
 
+  // Apply visual accessibility settings to the page
+  useEffect(() => {
+    const root = document.documentElement;
+    
+    // Text scaling
+    root.style.setProperty("--accessibility-text-scale", `${textScale / 100}`);
+    
+    // Apply text scale to body
+    if (textScale !== 100) {
+      document.body.style.fontSize = `${textScale}%`;
+    } else {
+      document.body.style.fontSize = "";
+    }
+    
+    // Contrast modes
+    root.classList.remove("a11y-high-contrast", "a11y-inverted");
+    if (contrastMode === "high") {
+      root.classList.add("a11y-high-contrast");
+    } else if (contrastMode === "inverted") {
+      root.classList.add("a11y-inverted");
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      document.body.style.fontSize = "";
+      root.classList.remove("a11y-high-contrast", "a11y-inverted");
+    };
+  }, [textScale, contrastMode]);
+
+  const resetVisualSettings = () => {
+    setTextScale(100);
+    setContrastMode("normal");
+  };
+
   return (
     <>
       {/* Floating Button */}
@@ -258,23 +325,27 @@ export function AccessibilityWidget() {
             </div>
             <div>
               <h2 className="font-semibold text-foreground">Accessibility Assistant</h2>
-              <p className="text-xs text-muted-foreground">Ask me anything about this page</p>
+              <p className="text-xs text-muted-foreground">
+                {activeTab === "chat" ? "Ask me anything about this page" : "Visual settings"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSpeech}
-              aria-label={isSpeechEnabled ? "Disable voice responses" : "Enable voice responses"}
-              className="h-8 w-8"
-            >
-              {isSpeechEnabled ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4 text-muted-foreground" />
-              )}
-            </Button>
+            {activeTab === "chat" && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSpeech}
+                aria-label={isSpeechEnabled ? "Disable voice responses" : "Enable voice responses"}
+                className="h-8 w-8"
+              >
+                {isSpeechEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4 text-muted-foreground" />
+                )}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -287,128 +358,257 @@ export function AccessibilityWidget() {
           </div>
         </div>
 
-        {/* Messages */}
-        <div 
-          className="h-[320px] overflow-y-auto p-4 space-y-4"
-          role="log"
-          aria-live="polite"
-          aria-label="Chat messages"
-        >
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
-              <Accessibility className="h-12 w-12 mb-4 opacity-30" />
-              <p className="font-medium">How can I help you today?</p>
-              <p className="text-sm mt-1">Ask about this page or use voice commands</p>
-              <div className="mt-4 grid gap-2 w-full max-w-[280px]">
-                <button
-                  onClick={() => sendMessage("Summarize this page for me")}
-                  className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                >
-                  📄 Summarize this page
-                </button>
-                <button
-                  onClick={() => sendMessage("What is this website about?")}
-                  className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                >
-                  ❓ What is this website about?
-                </button>
-                <button
-                  onClick={() => sendMessage("Help me navigate to the pricing section")}
-                  className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                >
-                  🧭 Navigate to pricing
-                </button>
-              </div>
-            </div>
-          ) : (
-            messages.map((message, index) => (
-              <div
-                key={index}
-                className={cn(
-                  "flex",
-                  message.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-2xl px-4 py-2.5",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-secondary text-secondary-foreground rounded-bl-md"
-                  )}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                </div>
-              </div>
-            ))
-          )}
-          {isLoading && messages[messages.length - 1]?.role === "user" && (
-            <div className="flex justify-start">
-              <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-2.5">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+        {/* Tab Navigation */}
+        <div className="flex border-b border-border">
+          <button
+            onClick={() => setActiveTab("chat")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors",
+              activeTab === "chat" 
+                ? "text-primary border-b-2 border-primary" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-selected={activeTab === "chat"}
+            role="tab"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Chat
+          </button>
+          <button
+            onClick={() => setActiveTab("visual")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors",
+              activeTab === "visual" 
+                ? "text-primary border-b-2 border-primary" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-selected={activeTab === "visual"}
+            role="tab"
+          >
+            <Settings2 className="h-4 w-4" />
+            Visual
+          </button>
         </div>
 
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="p-4 border-t border-border">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={isListening ? "Listening..." : "Type or speak your question..."}
-                className={cn(
-                  "pr-10 transition-all",
-                  isListening && "border-primary ring-2 ring-primary/20"
-                )}
-                disabled={isLoading}
-                aria-label="Your message"
-              />
-              {isVoiceSupported && (
-                <button
-                  type="button"
-                  onClick={handleVoiceToggle}
-                  className={cn(
-                    "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors",
-                    isListening 
-                      ? "text-primary bg-primary/10 animate-pulse" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  )}
-                  aria-label={isListening ? "Stop listening" : "Start voice input"}
-                  disabled={isLoading}
-                >
-                  {isListening ? (
-                    <MicOff className="h-4 w-4" />
-                  ) : (
-                    <Mic className="h-4 w-4" />
-                  )}
-                </button>
-              )}
-            </div>
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!inputValue.trim() || isLoading}
-              className="bg-gradient-primary hover:opacity-90 transition-opacity shrink-0"
-              aria-label="Send message"
+        {/* Chat Tab Content */}
+        {activeTab === "chat" && (
+          <>
+            {/* Messages */}
+            <div 
+              className="h-[280px] overflow-y-auto p-4 space-y-4"
+              role="log"
+              aria-live="polite"
+              aria-label="Chat messages"
             >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+              {messages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
+                  <Accessibility className="h-12 w-12 mb-4 opacity-30" />
+                  <p className="font-medium">How can I help you today?</p>
+                  <p className="text-sm mt-1">Ask about this page or use voice commands</p>
+                  <div className="mt-4 grid gap-2 w-full max-w-[280px]">
+                    <button
+                      onClick={() => sendMessage("Summarize this page for me")}
+                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                    >
+                      📄 Summarize this page
+                    </button>
+                    <button
+                      onClick={() => sendMessage("What is this website about?")}
+                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                    >
+                      ❓ What is this website about?
+                    </button>
+                    <button
+                      onClick={() => sendMessage("Help me navigate to the pricing section")}
+                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                    >
+                      🧭 Navigate to pricing
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <Send className="h-4 w-4" />
+                messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "flex",
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-2.5",
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-secondary text-secondary-foreground rounded-bl-md"
+                      )}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                  </div>
+                ))
               )}
+              {isLoading && messages[messages.length - 1]?.role === "user" && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-2.5">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </>
+        )}
+
+        {/* Visual Tab Content */}
+        {activeTab === "visual" && (
+          <div className="h-[280px] overflow-y-auto p-4 space-y-6">
+            {/* Text Size */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Type className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Text Size</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{textScale}%</span>
+              </div>
+              <Slider
+                value={[textScale]}
+                onValueChange={(value) => setTextScale(value[0])}
+                min={75}
+                max={200}
+                step={25}
+                className="w-full"
+                aria-label="Text size"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>A</span>
+                <span className="text-lg font-medium">A</span>
+              </div>
+            </div>
+
+            {/* Contrast Mode */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Contrast className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Contrast Mode</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setContrastMode("normal")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    contrastMode === "normal"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={contrastMode === "normal"}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={() => setContrastMode("high")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    contrastMode === "high"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={contrastMode === "high"}
+                >
+                  High
+                </button>
+                <button
+                  onClick={() => setContrastMode("inverted")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    contrastMode === "inverted"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={contrastMode === "inverted"}
+                >
+                  Inverted
+                </button>
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <Button
+              variant="outline"
+              onClick={resetVisualSettings}
+              className="w-full"
+              disabled={textScale === 100 && contrastMode === "normal"}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset to Defaults
             </Button>
-          </div>
-          {isListening && (
-            <p className="text-xs text-primary mt-2 animate-pulse text-center">
-              🎤 Speak now... Click mic or press Enter when done
+
+            <p className="text-xs text-muted-foreground text-center">
+              These settings affect the entire page and are applied immediately.
             </p>
-          )}
-        </form>
+          </div>
+        )}
+
+        {/* Input - only show on chat tab */}
+        {activeTab === "chat" && (
+          <form onSubmit={handleSubmit} className="p-4 border-t border-border">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={isListening ? "Listening..." : "Type or speak your question..."}
+                  className={cn(
+                    "pr-10 transition-all",
+                    isListening && "border-primary ring-2 ring-primary/20"
+                  )}
+                  disabled={isLoading}
+                  aria-label="Your message"
+                />
+                {isVoiceSupported && (
+                  <button
+                    type="button"
+                    onClick={handleVoiceToggle}
+                    className={cn(
+                      "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors",
+                      isListening 
+                        ? "text-primary bg-primary/10 animate-pulse" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    )}
+                    aria-label={isListening ? "Stop listening" : "Start voice input"}
+                    disabled={isLoading}
+                  >
+                    {isListening ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!inputValue.trim() || isLoading}
+                className="bg-gradient-primary hover:opacity-90 transition-opacity shrink-0"
+                aria-label="Send message"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {isListening && (
+              <p className="text-xs text-primary mt-2 animate-pulse text-center">
+                🎤 Speak now... Click mic or press Enter when done
+              </p>
+            )}
+          </form>
+        )}
       </div>
     </>
   );

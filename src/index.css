@@ -184,3 +184,51 @@
     }
   }
 }
+
+/* Accessibility Widget Visual Modes */
+
+/* High Contrast Mode - Maximizes readability with stark contrasts */
+.a11y-high-contrast {
+  --background: 0 0% 100% !important;
+  --foreground: 0 0% 0% !important;
+  --card: 0 0% 100% !important;
+  --card-foreground: 0 0% 0% !important;
+  --popover: 0 0% 100% !important;
+  --popover-foreground: 0 0% 0% !important;
+  --primary: 0 0% 0% !important;
+  --primary-foreground: 0 0% 100% !important;
+  --secondary: 0 0% 95% !important;
+  --secondary-foreground: 0 0% 0% !important;
+  --muted: 0 0% 90% !important;
+  --muted-foreground: 0 0% 20% !important;
+  --accent: 0 0% 0% !important;
+  --accent-foreground: 0 0% 100% !important;
+  --border: 0 0% 0% !important;
+  --input: 0 0% 0% !important;
+  --ring: 0 0% 0% !important;
+}
+
+.a11y-high-contrast * {
+  border-color: hsl(0 0% 0%) !important;
+}
+
+.a11y-high-contrast img {
+  filter: contrast(1.2) !important;
+}
+
+.a11y-high-contrast .bg-gradient-primary,
+.a11y-high-contrast .bg-gradient-accent {
+  background: hsl(0 0% 0%) !important;
+}
+
+/* Inverted Mode - Dark text on light / Light text on dark swap */
+.a11y-inverted {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
+
+.a11y-inverted img,
+.a11y-inverted video,
+.a11y-inverted iframe,
+.a11y-inverted svg:not(.lucide) {
+  filter: invert(1) hue-rotate(180deg) !important;
+}
