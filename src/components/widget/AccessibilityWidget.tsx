@@ -170,7 +170,11 @@ export function AccessibilityWidget() {
     });
   }, []);
 
-  const { speak, stop: stopSpeaking } = useSpeechSynthesis({
+  // Track if we're in conversation mode (auto-listen after AI speaks)
+  const [conversationMode, setConversationMode] = useState(false);
+  const wasSpeakingRef = useRef(false);
+
+  const { speak, stop: stopSpeaking, isSpeaking } = useSpeechSynthesis({
     rate: 0.9,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
@@ -209,6 +213,18 @@ export function AccessibilityWidget() {
       });
     },
   });
+
+  // Auto-start listening when AI finishes speaking in conversation mode
+  useEffect(() => {
+    // Detect transition from speaking to not speaking
+    if (wasSpeakingRef.current && !isSpeaking && conversationMode && isSpeechEnabled && !isLoading) {
+      // Small delay to ensure clean transition
+      setTimeout(() => {
+        startListening();
+      }, 400);
+    }
+    wasSpeakingRef.current = isSpeaking;
+  }, [isSpeaking, conversationMode, isSpeechEnabled, isLoading, startListening]);
 
   // Update input when transcript changes
   useEffect(() => {
@@ -488,11 +504,13 @@ export function AccessibilityWidget() {
   const handleVoiceToggle = () => {
     if (isListening) {
       stopListening();
+      setConversationMode(false); // Exit conversation mode when manually stopping
       // Send the message after stopping
       if (inputValue.trim()) {
         sendMessage(inputValue);
       }
     } else {
+      setConversationMode(true); // Enter conversation mode
       startListening();
     }
   };
