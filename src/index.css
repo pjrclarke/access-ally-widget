@@ -258,60 +258,36 @@
   line-height: 1.8 !important;
 }
 
-/* Text Scaling - applies to ALL text using !important */
-.a11y-text-75 {
-  font-size: 75% !important;
-}
-.a11y-text-75 * {
-  font-size: inherit !important;
-}
-.a11y-text-75 h1, .a11y-text-75 h2, .a11y-text-75 h3, .a11y-text-75 h4, .a11y-text-75 h5, .a11y-text-75 h6 {
-  font-size: revert !important;
-  transform: scale(0.75);
-  transform-origin: left top;
+/* Text Scaling - Only affects body text, not headers or UI elements */
+/* Uses CSS custom property for smooth, incremental scaling */
+.a11y-text-scaled {
+  --a11y-text-scale: 1;
 }
 
-.a11y-text-125 {
-  font-size: 125% !important;
-}
-.a11y-text-125 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
-  font-size: 125% !important;
-}
-
-.a11y-text-150 {
-  font-size: 150% !important;
-}
-.a11y-text-150 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
-  font-size: 150% !important;
+/* Target paragraph text, list items, and small text elements */
+.a11y-text-scaled p,
+.a11y-text-scaled li,
+.a11y-text-scaled td,
+.a11y-text-scaled th,
+.a11y-text-scaled span:not([class*="text-"]):not([class*="font-"]),
+.a11y-text-scaled article,
+.a11y-text-scaled section > div:not([class]) {
+  font-size: calc(1em * var(--a11y-text-scale, 1)) !important;
 }
 
-.a11y-text-175 {
-  font-size: 175% !important;
-}
-.a11y-text-175 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
-  font-size: 175% !important;
-}
-
-.a11y-text-200 {
-  font-size: 200% !important;
-}
-.a11y-text-200 *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6):not(svg):not(button):not(input) {
-  font-size: 200% !important;
+/* Target common small text classes */
+.a11y-text-scaled .text-sm,
+.a11y-text-scaled .text-xs {
+  font-size: calc(0.875rem * var(--a11y-text-scale, 1)) !important;
 }
 
-/* Keep widget text at normal size */
-.a11y-text-125 [role="dialog"],
-.a11y-text-150 [role="dialog"],
-.a11y-text-175 [role="dialog"],
-.a11y-text-200 [role="dialog"],
-.a11y-text-75 [role="dialog"] {
-  font-size: 16px !important;
+.a11y-text-scaled .text-base {
+  font-size: calc(1rem * var(--a11y-text-scale, 1)) !important;
 }
-.a11y-text-125 [role="dialog"] *,
-.a11y-text-150 [role="dialog"] *,
-.a11y-text-175 [role="dialog"] *,
-.a11y-text-200 [role="dialog"] *,
-.a11y-text-75 [role="dialog"] * {
+
+/* Exclude the accessibility widget itself */
+.a11y-text-scaled [role="dialog"],
+.a11y-text-scaled [role="dialog"] * {
   font-size: revert !important;
 }
 
