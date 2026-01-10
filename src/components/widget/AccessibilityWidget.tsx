@@ -23,7 +23,9 @@ import {
   Eye,
   Keyboard,
   AlignVerticalSpaceAround,
-  Space
+  Space,
+  ImageOff,
+  Focus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -43,6 +45,8 @@ interface AccessibilitySettings {
   dyslexiaFont: boolean;
   readingGuide: boolean;
   colorBlindMode: ColorBlindMode;
+  hideImages: boolean;
+  focusHighlight: boolean;
 }
 
 const DEFAULT_SETTINGS: AccessibilitySettings = {
@@ -53,6 +57,8 @@ const DEFAULT_SETTINGS: AccessibilitySettings = {
   dyslexiaFont: false,
   readingGuide: false,
   colorBlindMode: "normal",
+  hideImages: false,
+  focusHighlight: false,
 };
 
 // Load settings from localStorage
@@ -120,7 +126,7 @@ export function AccessibilityWidget() {
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
   
   // Destructure for convenience
-  const { textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode } = settings;
+  const { textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode, hideImages, focusHighlight } = settings;
   
   // Update a single setting and persist
   const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
@@ -181,12 +187,86 @@ export function AccessibilityWidget() {
     }
   }, [isOpen]);
 
-  const getPageContent = useCallback(() => {
+  // Get page content and interactive elements for context
+  const getPageContext = useCallback(() => {
     // Get main content for context
     const mainContent = document.querySelector("main")?.textContent || 
                        document.body.textContent || "";
-    // Limit to first 2000 characters
-    return mainContent.slice(0, 2000).trim();
+    
+    // Get clickable elements for AI to reference
+    const interactiveElements: string[] = [];
+    document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el, i) => {
+      const text = el.textContent?.trim() || el.getAttribute('aria-label') || '';
+      const id = el.id || '';
+      if (text && i < 20) { // Limit to 20 elements
+        interactiveElements.push(`[${i}] ${text}${id ? ` (id: ${id})` : ''}`);
+      }
+    });
+    
+    return {
+      content: mainContent.slice(0, 2000).trim(),
+      interactiveElements: interactiveElements.join('\n')
+    };
+  }, []);
+
+  // Execute page actions returned by AI
+  const executeAction = useCallback((action: string) => {
+    const actionMatch = action.match(/\[ACTION:(\w+):(.+?)\]/);
+    if (!actionMatch) return;
+    
+    const [, actionType, target] = actionMatch;
+    let element: Element | null = null;
+    
+    // Try to find element by various methods
+    // Try by ID first
+    element = document.getElementById(target);
+    
+    // Try by text content
+    if (!element) {
+      const allElements = document.querySelectorAll('button, a, [role="button"], input, textarea');
+      for (const el of allElements) {
+        if (el.textContent?.toLowerCase().includes(target.toLowerCase()) ||
+            el.getAttribute('aria-label')?.toLowerCase().includes(target.toLowerCase())) {
+          element = el;
+          break;
+        }
+      }
+    }
+    
+    // Try by selector
+    if (!element) {
+      try {
+        element = document.querySelector(target);
+      } catch {
+        // Invalid selector, ignore
+      }
+    }
+    
+    if (!element) {
+      console.warn(`Could not find element: ${target}`);
+      return;
+    }
+    
+    switch (actionType.toUpperCase()) {
+      case 'CLICK':
+        (element as HTMLElement).click();
+        break;
+      case 'SCROLL':
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      case 'FOCUS':
+        (element as HTMLElement).focus();
+        break;
+      case 'FILL':
+        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+          const valueMatch = action.match(/\[ACTION:FILL:(.+?):(.+?)\]/);
+          if (valueMatch) {
+            element.value = valueMatch[2];
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+        break;
+    }
   }, []);
 
   const sendMessage = useCallback(async (messageText: string) => {
@@ -197,6 +277,8 @@ export function AccessibilityWidget() {
     setInputValue("");
     setIsLoading(true);
 
+    const pageContext = getPageContext();
+    
     try {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/widget-chat`,
@@ -208,7 +290,8 @@ export function AccessibilityWidget() {
           },
           body: JSON.stringify({
             message: messageText,
-            pageContent: getPageContent(),
+            pageContent: pageContext.content,
+            interactiveElements: pageContext.interactiveElements,
             pageUrl: window.location.href,
           }),
         }
@@ -271,9 +354,20 @@ export function AccessibilityWidget() {
         }
       }
 
-      // Speak the response if enabled (strip markdown for cleaner speech)
+      // Execute any actions in the response
+      const actionMatches = assistantContent.match(/\[ACTION:\w+:.+?\]/g);
+      if (actionMatches) {
+        actionMatches.forEach(action => {
+          executeAction(action);
+        });
+      }
+
+      // Speak the response if enabled (strip markdown and actions for cleaner speech)
       if (isSpeechEnabled && assistantContent) {
-        speak(stripMarkdown(assistantContent));
+        const cleanContent = stripMarkdown(assistantContent).replace(/\[ACTION:\w+:.+?\]/g, '');
+        if (cleanContent.trim()) {
+          speak(cleanContent);
+        }
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -290,7 +384,7 @@ export function AccessibilityWidget() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, getPageContent, isSpeechEnabled, speak, toast]);
+  }, [isLoading, getPageContext, executeAction, isSpeechEnabled, speak, toast]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -378,18 +472,33 @@ export function AccessibilityWidget() {
       root.classList.add(`a11y-${colorBlindMode}`);
     }
     
+    // Hide images
+    if (hideImages) {
+      root.classList.add("a11y-hide-images");
+    } else {
+      root.classList.remove("a11y-hide-images");
+    }
+    
+    // Focus highlight
+    if (focusHighlight) {
+      root.classList.add("a11y-focus-highlight");
+    } else {
+      root.classList.remove("a11y-focus-highlight");
+    }
+    
     return () => {
       // Cleanup on unmount
       root.classList.remove(
         "a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", 
         "a11y-reading-guide-active", "a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia",
-        "a11y-text-scaled", "a11y-line-height-scaled", "a11y-letter-spacing-scaled"
+        "a11y-text-scaled", "a11y-line-height-scaled", "a11y-letter-spacing-scaled",
+        "a11y-hide-images", "a11y-focus-highlight"
       );
       root.style.removeProperty("--a11y-text-scale");
       root.style.removeProperty("--a11y-line-height");
       root.style.removeProperty("--a11y-letter-spacing");
     };
-  }, [textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode]);
+  }, [textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode, hideImages, focusHighlight]);
 
   // Reading guide mouse tracking
   useEffect(() => {
@@ -409,7 +518,7 @@ export function AccessibilityWidget() {
     saveSettings(newSettings);
   };
 
-  const hasCustomSettings = textScale !== 100 || lineHeight !== 100 || letterSpacing !== 0 || contrastMode !== "normal" || dyslexiaFont || readingGuide || colorBlindMode !== "normal";
+  const hasCustomSettings = textScale !== 100 || lineHeight !== 100 || letterSpacing !== 0 || contrastMode !== "normal" || dyslexiaFont || readingGuide || colorBlindMode !== "normal" || hideImages || focusHighlight;
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -843,6 +952,37 @@ export function AccessibilityWidget() {
               />
             </div>
 
+            {/* Hide Images Toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <ImageOff className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <span className="text-sm font-medium">Hide Images</span>
+                  <p className="text-xs text-muted-foreground">Reduces visual clutter</p>
+                </div>
+              </div>
+              <Switch
+                checked={hideImages}
+                onCheckedChange={(checked) => updateSetting("hideImages", checked)}
+                aria-label="Toggle hide images"
+              />
+            </div>
+
+            {/* Focus Highlight Toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <Focus className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <span className="text-sm font-medium">Focus Highlight</span>
+                  <p className="text-xs text-muted-foreground">Enhanced focus outlines</p>
+                </div>
+              </div>
+              <Switch
+                checked={focusHighlight}
+                onCheckedChange={(checked) => updateSetting("focusHighlight", checked)}
+                aria-label="Toggle focus highlight"
+              />
+            </div>
             {/* Color Blind Mode */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
