@@ -32,14 +32,17 @@ import {
   Info,
   CheckCircle2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  FileJson,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { useToast } from "@/hooks/use-toast";
 import { useAccessibilityAudit, AuditIssue } from "./useAccessibilityAudit";
-
+import { exportToPDF, exportToJSON } from "./useAuditExport";
 // LocalStorage key for persisting settings
 const STORAGE_KEY = "a11y-widget-settings";
 
@@ -1218,6 +1221,34 @@ export function AccessibilityWidget() {
                     <p className="text-xs text-muted-foreground">This page passes basic accessibility checks.</p>
                   </div>
                 )}
+
+                {/* Export Buttons */}
+                <div className="border-t border-border pt-4 mt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Download className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">Export Report</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => exportToPDF(auditResult)}
+                      className="flex-1"
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      PDF
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => exportToJSON(auditResult)}
+                      className="flex-1"
+                    >
+                      <FileJson className="h-4 w-4 mr-1" />
+                      JSON
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Re-scan Button */}
                 <div className="flex gap-2">
