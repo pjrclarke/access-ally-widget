@@ -19,7 +19,9 @@ import {
   MessageSquare,
   RotateCcw,
   BookOpen,
-  Ruler
+  Ruler,
+  Eye,
+  Keyboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
@@ -29,11 +31,14 @@ import { useToast } from "@/hooks/use-toast";
 // LocalStorage key for persisting settings
 const STORAGE_KEY = "a11y-widget-settings";
 
+type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
+
 interface AccessibilitySettings {
   textScale: number;
   contrastMode: "normal" | "high" | "inverted";
   dyslexiaFont: boolean;
   readingGuide: boolean;
+  colorBlindMode: ColorBlindMode;
 }
 
 const DEFAULT_SETTINGS: AccessibilitySettings = {
@@ -41,6 +46,7 @@ const DEFAULT_SETTINGS: AccessibilitySettings = {
   contrastMode: "normal",
   dyslexiaFont: false,
   readingGuide: false,
+  colorBlindMode: "normal",
 };
 
 // Load settings from localStorage
@@ -108,7 +114,7 @@ export function AccessibilityWidget() {
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
   
   // Destructure for convenience
-  const { textScale, contrastMode, dyslexiaFont, readingGuide } = settings;
+  const { textScale, contrastMode, dyslexiaFont, readingGuide, colorBlindMode } = settings;
   
   // Update a single setting and persist
   const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
@@ -311,14 +317,10 @@ export function AccessibilityWidget() {
   useEffect(() => {
     const root = document.documentElement;
     
-    // Text scaling
-    root.style.setProperty("--accessibility-text-scale", `${textScale / 100}`);
-    
-    // Apply text scale to body
+    // Text scaling - apply to html element for rem-based scaling
+    root.classList.remove("a11y-text-75", "a11y-text-125", "a11y-text-150", "a11y-text-175", "a11y-text-200");
     if (textScale !== 100) {
-      document.body.style.fontSize = `${textScale}%`;
-    } else {
-      document.body.style.fontSize = "";
+      root.classList.add(`a11y-text-${textScale}`);
     }
     
     // Contrast modes
@@ -343,12 +345,21 @@ export function AccessibilityWidget() {
       root.classList.remove("a11y-reading-guide-active");
     }
     
+    // Color blind modes
+    root.classList.remove("a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia");
+    if (colorBlindMode !== "normal") {
+      root.classList.add(`a11y-${colorBlindMode}`);
+    }
+    
     return () => {
       // Cleanup on unmount
-      document.body.style.fontSize = "";
-      root.classList.remove("a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", "a11y-reading-guide-active");
+      root.classList.remove(
+        "a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font", 
+        "a11y-reading-guide-active", "a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia",
+        "a11y-text-75", "a11y-text-125", "a11y-text-150", "a11y-text-175", "a11y-text-200"
+      );
     };
-  }, [textScale, contrastMode, dyslexiaFont, readingGuide]);
+  }, [textScale, contrastMode, dyslexiaFont, readingGuide, colorBlindMode]);
 
   // Reading guide mouse tracking
   useEffect(() => {
@@ -368,10 +379,90 @@ export function AccessibilityWidget() {
     saveSettings(newSettings);
   };
 
-  const hasCustomSettings = textScale !== 100 || contrastMode !== "normal" || dyslexiaFont || readingGuide;
+  const hasCustomSettings = textScale !== 100 || contrastMode !== "normal" || dyslexiaFont || readingGuide || colorBlindMode !== "normal";
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger if Alt key is pressed
+      if (!e.altKey) return;
+      
+      // Prevent default for our shortcuts
+      switch (e.key.toLowerCase()) {
+        case 'a':
+          e.preventDefault();
+          setIsOpen(prev => !prev);
+          break;
+        case 'r':
+          e.preventDefault();
+          updateSetting("readingGuide", !readingGuide);
+          break;
+        case 'd':
+          e.preventDefault();
+          updateSetting("dyslexiaFont", !dyslexiaFont);
+          break;
+        case 'h':
+          e.preventDefault();
+          updateSetting("contrastMode", contrastMode === "high" ? "normal" : "high");
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          updateSetting("textScale", Math.min(200, textScale + 25));
+          break;
+        case '-':
+          e.preventDefault();
+          updateSetting("textScale", Math.max(75, textScale - 25));
+          break;
+        case '0':
+          e.preventDefault();
+          resetVisualSettings();
+          break;
+      }
+    };
+    
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [readingGuide, dyslexiaFont, contrastMode, textScale, updateSetting]);
 
   return (
     <>
+      {/* SVG Filters for Color Blindness Correction */}
+      <svg className="absolute h-0 w-0" aria-hidden="true">
+        <defs>
+          {/* Protanopia filter - shifts reds to be more distinguishable */}
+          <filter id="protanopia-filter">
+            <feColorMatrix
+              type="matrix"
+              values="0.567, 0.433, 0,     0, 0
+                      0.558, 0.442, 0,     0, 0
+                      0,     0.242, 0.758, 0, 0
+                      0,     0,     0,     1, 0"
+            />
+          </filter>
+          {/* Deuteranopia filter - shifts greens to be more distinguishable */}
+          <filter id="deuteranopia-filter">
+            <feColorMatrix
+              type="matrix"
+              values="0.625, 0.375, 0,   0, 0
+                      0.7,   0.3,   0,   0, 0
+                      0,     0.3,   0.7, 0, 0
+                      0,     0,     0,   1, 0"
+            />
+          </filter>
+          {/* Tritanopia filter - shifts blues to be more distinguishable */}
+          <filter id="tritanopia-filter">
+            <feColorMatrix
+              type="matrix"
+              values="0.95, 0.05,  0,     0, 0
+                      0,    0.433, 0.567, 0, 0
+                      0,    0.475, 0.525, 0, 0
+                      0,    0,     0,     1, 0"
+            />
+          </filter>
+        </defs>
+      </svg>
+      
       {/* Reading Guide Overlay */}
       {readingGuide && (
         <div 
@@ -675,6 +766,64 @@ export function AccessibilityWidget() {
               />
             </div>
 
+            {/* Color Blind Mode */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Color Vision</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => updateSetting("colorBlindMode", "normal")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    colorBlindMode === "normal"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={colorBlindMode === "normal"}
+                >
+                  Normal
+                </button>
+                <button
+                  onClick={() => updateSetting("colorBlindMode", "protanopia")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    colorBlindMode === "protanopia"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={colorBlindMode === "protanopia"}
+                >
+                  Protanopia
+                </button>
+                <button
+                  onClick={() => updateSetting("colorBlindMode", "deuteranopia")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    colorBlindMode === "deuteranopia"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={colorBlindMode === "deuteranopia"}
+                >
+                  Deuteranopia
+                </button>
+                <button
+                  onClick={() => updateSetting("colorBlindMode", "tritanopia")}
+                  className={cn(
+                    "px-3 py-2 text-sm rounded-lg border transition-all",
+                    colorBlindMode === "tritanopia"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50"
+                  )}
+                  aria-pressed={colorBlindMode === "tritanopia"}
+                >
+                  Tritanopia
+                </button>
+              </div>
+            </div>
+
             {/* Reset Button */}
             <Button
               variant="outline"
@@ -685,6 +834,23 @@ export function AccessibilityWidget() {
               <RotateCcw className="h-4 w-4 mr-2" />
               Reset to Defaults
             </Button>
+
+            {/* Keyboard Shortcuts Info */}
+            <div className="pt-2 border-t border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <Keyboard className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground">Keyboard Shortcuts</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+A</kbd> Toggle Panel</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+R</kbd> Reading Guide</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+D</kbd> Dyslexia Font</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+H</kbd> High Contrast</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt++</kbd> Increase Text</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+-</kbd> Decrease Text</span>
+                <span><kbd className="px-1 py-0.5 bg-secondary rounded text-[10px]">Alt+0</kbd> Reset All</span>
+              </div>
+            </div>
           </div>
         )}
 
