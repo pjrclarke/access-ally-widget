@@ -13,6 +13,7 @@ interface SpeechSynthesisResult {
   stop: () => void;
   isSpeaking: boolean;
   isSupported: boolean;
+  unlockAudio: () => void;
 }
 
 export function useSpeechSynthesis({
@@ -24,7 +25,9 @@ export function useSpeechSynthesis({
 }: UseSpeechSynthesisOptions = {}): SpeechSynthesisResult {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [isUnlocked, setIsUnlocked] = useState(false);
   const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+  const pendingTextRef = useRef<string | null>(null);
 
   // Load voices - they may not be immediately available
   useEffect(() => {
@@ -48,7 +51,33 @@ export function useSpeechSynthesis({
     };
   }, [isSupported]);
 
-  const speak = useCallback((text: string) => {
+  // Mobile browsers require user interaction to unlock audio
+  // This function should be called on the first user tap/click
+  const unlockAudio = useCallback(() => {
+    if (!isSupported || isUnlocked) return;
+
+    // Create a silent utterance to "unlock" speech synthesis on mobile
+    const utterance = new SpeechSynthesisUtterance("");
+    utterance.volume = 0;
+    utterance.onend = () => {
+      setIsUnlocked(true);
+      // If there's pending text to speak, speak it now
+      if (pendingTextRef.current) {
+        const text = pendingTextRef.current;
+        pendingTextRef.current = null;
+        // Small delay to ensure unlock is complete
+        setTimeout(() => speakText(text), 100);
+      }
+    };
+    utterance.onerror = () => {
+      // Even on error, mark as attempted
+      setIsUnlocked(true);
+    };
+    
+    window.speechSynthesis.speak(utterance);
+  }, [isSupported, isUnlocked]);
+
+  const speakText = useCallback((text: string) => {
     if (!isSupported) {
       onError?.("Speech synthesis not supported");
       return;
@@ -89,16 +118,47 @@ export function useSpeechSynthesis({
     utterance.onerror = (event) => {
       setIsSpeaking(false);
       // Don't report "interrupted" as an error - it's expected when canceling
-      if (event.error !== "interrupted") {
+      if (event.error !== "interrupted" && event.error !== "canceled") {
         onError?.(event.error);
       }
     };
 
-    // Use setTimeout to work around Chrome bug where speech doesn't start
+    // Mobile workaround: ensure synth is not paused
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    // Use setTimeout to work around Chrome/Safari bugs
     setTimeout(() => {
       window.speechSynthesis.speak(utterance);
+      
+      // iOS Safari workaround: check if speech actually started
+      // If not speaking after a short delay, try again
+      setTimeout(() => {
+        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+          window.speechSynthesis.speak(utterance);
+        }
+      }, 250);
     }, 50);
   }, [rate, pitch, voice, voices, onEnd, onError, isSupported]);
+
+  const speak = useCallback((text: string) => {
+    if (!isSupported) {
+      onError?.("Speech synthesis not supported");
+      return;
+    }
+
+    // On mobile, if not yet unlocked, store the text and try to speak
+    // The unlockAudio call on user interaction should handle it
+    if (!isUnlocked) {
+      pendingTextRef.current = text;
+      // Still try to speak - it might work on some devices
+      speakText(text);
+      return;
+    }
+
+    speakText(text);
+  }, [isSupported, isUnlocked, speakText, onError]);
 
   const stop = useCallback(() => {
     if (isSupported) {
@@ -112,5 +172,6 @@ export function useSpeechSynthesis({
     stop,
     isSpeaking,
     isSupported,
+    unlockAudio,
   };
 }

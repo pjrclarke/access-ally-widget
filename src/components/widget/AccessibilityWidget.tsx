@@ -174,7 +174,7 @@ export function AccessibilityWidget() {
   const [conversationMode, setConversationMode] = useState(false);
   const wasSpeakingRef = useRef(false);
 
-  const { speak, stop: stopSpeaking, isSpeaking } = useSpeechSynthesis({
+  const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
     rate: 0.9,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
@@ -502,6 +502,9 @@ export function AccessibilityWidget() {
   };
 
   const handleVoiceToggle = () => {
+    // Unlock audio on mobile when user taps the mic button
+    unlockAudio();
+    
     if (isListening) {
       stopListening();
       setConversationMode(false); // Exit conversation mode when manually stopping
@@ -516,6 +519,9 @@ export function AccessibilityWidget() {
   };
 
   const toggleSpeech = () => {
+    // Unlock audio on mobile when user toggles speech
+    unlockAudio();
+    
     if (isSpeechEnabled) {
       stopSpeaking();
     }
