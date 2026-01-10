@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 
 interface UseSpeechRecognitionOptions {
   onResult?: (transcript: string) => void;
+  onFinalResult?: (transcript: string) => void;
   onError?: (error: string) => void;
   continuous?: boolean;
   language?: string;
+  autoSendDelay?: number; // ms to wait after pause before auto-sending
 }
 
 interface SpeechRecognitionResult {
@@ -50,24 +52,55 @@ interface SpeechRecognitionInstance {
 
 export function useSpeechRecognition({
   onResult,
+  onFinalResult,
   onError,
   continuous = false,
   language = "en-US",
+  autoSendDelay = 1500, // Default 1.5 seconds pause triggers auto-send
 }: UseSpeechRecognitionOptions = {}): SpeechRecognitionResult {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const pauseTimerRef = useRef<number | null>(null);
+  const accumulatedTranscriptRef = useRef("");
   
   // Store callbacks in refs to avoid recreating recognition on callback changes
   const onResultRef = useRef(onResult);
+  const onFinalResultRef = useRef(onFinalResult);
   const onErrorRef = useRef(onError);
   
   // Keep refs updated
   useEffect(() => {
     onResultRef.current = onResult;
+    onFinalResultRef.current = onFinalResult;
     onErrorRef.current = onError;
-  }, [onResult, onError]);
+  }, [onResult, onFinalResult, onError]);
+  
+  // Clear pause timer
+  const clearPauseTimer = useCallback(() => {
+    if (pauseTimerRef.current) {
+      clearTimeout(pauseTimerRef.current);
+      pauseTimerRef.current = null;
+    }
+  }, []);
+  
+  // Start pause timer for auto-send
+  const startPauseTimer = useCallback(() => {
+    clearPauseTimer();
+    pauseTimerRef.current = window.setTimeout(() => {
+      const finalText = accumulatedTranscriptRef.current.trim();
+      if (finalText && onFinalResultRef.current) {
+        onFinalResultRef.current(finalText);
+        accumulatedTranscriptRef.current = "";
+        setTranscript("");
+        // Stop listening after auto-send for natural conversation flow
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+      }
+    }, autoSendDelay);
+  }, [autoSendDelay, clearPauseTimer]);
 
   useEffect(() => {
     // Check for browser support
@@ -99,12 +132,21 @@ export function useSpeechRecognition({
           }
         }
 
-        const currentTranscript = finalTranscript || interimTranscript;
-        setTranscript(currentTranscript);
-
-        if (finalTranscript && onResultRef.current) {
-          onResultRef.current(finalTranscript);
+        // Accumulate final transcripts
+        if (finalTranscript) {
+          accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? " " : "") + finalTranscript;
         }
+
+        const displayTranscript = accumulatedTranscriptRef.current + (interimTranscript ? " " + interimTranscript : "");
+        setTranscript(displayTranscript.trim());
+
+        // Call onResult for live updates
+        if (onResultRef.current) {
+          onResultRef.current(displayTranscript.trim());
+        }
+
+        // Reset pause timer on any speech activity
+        startPauseTimer();
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
@@ -125,15 +167,18 @@ export function useSpeechRecognition({
     }
 
     return () => {
+      clearPauseTimer();
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
     };
-  }, [continuous, language]); // Removed onResult and onError from deps
+  }, [continuous, language, startPauseTimer, clearPauseTimer]);
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
       setTranscript("");
+      accumulatedTranscriptRef.current = "";
+      clearPauseTimer();
       try {
         recognitionRef.current.start();
         // Don't set isListening here - let onstart handle it
@@ -141,14 +186,15 @@ export function useSpeechRecognition({
         console.error("Failed to start speech recognition:", error);
       }
     }
-  }, [isListening]);
+  }, [isListening, clearPauseTimer]);
 
   const stopListening = useCallback(() => {
+    clearPauseTimer();
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     }
-  }, [isListening]);
+  }, [isListening, clearPauseTimer]);
 
   return {
     isListening,
