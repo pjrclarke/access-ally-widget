@@ -122,7 +122,20 @@ function loadSettings(): AccessibilitySettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      // Ensure all properties have valid values (handle old settings without new properties)
+      return {
+        textScale: parsed.textScale ?? DEFAULT_SETTINGS.textScale,
+        lineHeight: parsed.lineHeight ?? DEFAULT_SETTINGS.lineHeight,
+        letterSpacing: parsed.letterSpacing ?? DEFAULT_SETTINGS.letterSpacing,
+        contrastMode: parsed.contrastMode ?? DEFAULT_SETTINGS.contrastMode,
+        dyslexiaFont: parsed.dyslexiaFont ?? DEFAULT_SETTINGS.dyslexiaFont,
+        readingGuide: parsed.readingGuide ?? DEFAULT_SETTINGS.readingGuide,
+        colorBlindMode: parsed.colorBlindMode ?? DEFAULT_SETTINGS.colorBlindMode,
+        hideImages: parsed.hideImages ?? DEFAULT_SETTINGS.hideImages,
+        focusHighlight: parsed.focusHighlight ?? DEFAULT_SETTINGS.focusHighlight,
+        speechRate: parsed.speechRate ?? DEFAULT_SETTINGS.speechRate,
+      };
     }
   } catch {
     // Ignore
