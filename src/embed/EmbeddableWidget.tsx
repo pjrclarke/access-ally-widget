@@ -22,6 +22,7 @@ interface EmbeddableWidgetProps {
   position?: "bottom-right" | "bottom-left";
   primaryColor?: string;
   apiEndpoint?: string;
+  apiKey?: string;
 }
 
 // Inline styles to avoid Tailwind dependency in embed
@@ -125,6 +126,7 @@ export function EmbeddableWidget({
   position = "bottom-right",
   primaryColor = "#6366f1",
   apiEndpoint,
+  apiKey,
 }: EmbeddableWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -275,9 +277,14 @@ export function EmbeddableWidget({
       const context = getPageContext();
       const endpoint = apiEndpoint || `${window.location.origin}/functions/v1/widget-chat`;
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKey) {
+        headers["x-api-key"] = apiKey;
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           message: userMessage,
           ...context,

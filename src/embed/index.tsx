@@ -7,6 +7,7 @@ interface A11yWidgetConfig {
   position?: "bottom-right" | "bottom-left";
   primaryColor?: string;
   apiEndpoint?: string;
+  apiKey?: string;
 }
 
 declare global {
@@ -36,6 +37,7 @@ function init(config: A11yWidgetConfig = {}) {
         position={config.position || "bottom-right"}
         primaryColor={config.primaryColor || "#6366f1"}
         apiEndpoint={config.apiEndpoint}
+        apiKey={config.apiKey}
       />
     </React.StrictMode>
   );
