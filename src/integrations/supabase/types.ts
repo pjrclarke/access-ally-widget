@@ -14,13 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      widget_api_keys: {
+        Row: {
+          api_key: string
+          created_at: string
+          domain: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          name: string
+          request_count: number
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          name: string
+          request_count?: number
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          domain?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          name?: string
+          request_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_widget_api_key: { Args: never; Returns: string }
+      validate_widget_api_key: {
+        Args: { key_to_validate: string }
+        Returns: {
+          is_valid: boolean
+          key_domain: string
+          key_name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

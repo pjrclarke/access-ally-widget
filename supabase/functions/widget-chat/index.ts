@@ -1,9 +1,51 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
 };
+
+async function validateApiKey(apiKey: string, origin: string | null): Promise<{ valid: boolean; error?: string }> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error("Missing Supabase configuration");
+    return { valid: false, error: "Server configuration error" };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  
+  const { data, error } = await supabase.rpc("validate_widget_api_key", {
+    key_to_validate: apiKey,
+  });
+
+  if (error) {
+    console.error("API key validation error:", error);
+    return { valid: false, error: "Failed to validate API key" };
+  }
+
+  const result = data?.[0];
+  if (!result?.is_valid) {
+    return { valid: false, error: "Invalid or inactive API key" };
+  }
+
+  // Check domain restriction if set
+  if (result.key_domain && result.key_domain !== "*" && origin) {
+    const allowedDomains = result.key_domain.split(",").map((d: string) => d.trim());
+    const originHost = new URL(origin).hostname;
+    const domainMatch = allowedDomains.some((domain: string) => 
+      originHost === domain || originHost.endsWith(`.${domain}`)
+    );
+    
+    if (!domainMatch) {
+      return { valid: false, error: "API key not authorized for this domain" };
+    }
+  }
+
+  return { valid: true };
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -12,6 +54,26 @@ serve(async (req) => {
   }
 
   try {
+    // Check for API key in header
+    const apiKey = req.headers.get("x-api-key");
+    const origin = req.headers.get("origin");
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing API key. Include 'x-api-key' header." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate the API key
+    const validation = await validateApiKey(apiKey, origin);
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { message, pageContent, interactiveElements, pageUrl } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
