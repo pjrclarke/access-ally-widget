@@ -44,7 +44,7 @@ interface EmbeddableWidgetProps {
   apiKey?: string;
 }
 
-type TabType = "chat" | "visual" | "audit";
+type TabType = "chat" | "visual" | "audit" | "settings";
 type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
 type ContrastMode = "normal" | "high" | "inverted";
 
@@ -58,6 +58,7 @@ interface AccessibilitySettings {
   colorBlindMode: ColorBlindMode;
   hideImages: boolean;
   focusHighlight: boolean;
+  speechRate: number;
 }
 
 interface AuditIssue {
@@ -87,7 +88,33 @@ const DEFAULT_SETTINGS: AccessibilitySettings = {
   colorBlindMode: "normal",
   hideImages: false,
   focusHighlight: false,
+  speechRate: 1.0,
 };
+
+// Strip markdown, emojis, and special characters for clean speech output
+function stripForSpeech(text: string): string {
+  return text
+    // Remove markdown bold/italic
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    // Remove markdown links [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // Remove markdown headers
+    .replace(/^#{1,6}\s+/gm, '')
+    // Remove markdown code blocks and inline code
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove emojis (comprehensive emoji regex)
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '')
+    // Remove bullet points and list markers
+    .replace(/^[\s]*[-*•]\s+/gm, '')
+    .replace(/^[\s]*\d+\.\s+/gm, '')
+    // Remove extra whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const STORAGE_KEY = "a11y-embed-settings";
 
@@ -189,7 +216,8 @@ const createStyles = (primaryColor: string) => ({
   },
   userMessage: {
     alignSelf: "flex-end" as const,
-    background: "#f3f4f6",
+    background: "#1f2937",
+    color: "#ffffff",
     padding: "10px 14px",
     borderRadius: "16px 16px 4px 16px",
     maxWidth: "80%",
@@ -197,7 +225,8 @@ const createStyles = (primaryColor: string) => ({
   },
   assistantMessage: (): React.CSSProperties => ({
     alignSelf: "flex-start",
-    background: primaryColor + "15",
+    background: "#f0f4f8",
+    color: "#1f2937",
     padding: "10px 14px",
     borderRadius: "16px 16px 16px 4px",
     maxWidth: "80%",
@@ -209,14 +238,17 @@ const createStyles = (primaryColor: string) => ({
     display: "flex",
     gap: "8px",
     alignItems: "center",
+    background: "#ffffff",
   },
   input: {
     flex: 1,
     padding: "10px 14px",
-    border: "1px solid #e5e7eb",
+    border: "2px solid #374151",
     borderRadius: "24px",
     fontSize: "14px",
     outline: "none",
+    background: "#ffffff",
+    color: "#1f2937",
   },
   iconButton: (active?: boolean): React.CSSProperties => ({
     width: "40px",
@@ -316,7 +348,7 @@ export function EmbeddableWidget({
   const wasSpeakingRef = useRef(false);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
-    rate: 0.9,
+    rate: settings.speechRate,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
 
@@ -816,7 +848,10 @@ export function EmbeddableWidget({
         }
 
         const cleanedResponse = parseAndExecuteActions(fullResponse);
-        if (isSpeechEnabled && cleanedResponse) speak(cleanedResponse);
+        if (isSpeechEnabled && cleanedResponse) {
+          const speechText = stripForSpeech(cleanedResponse);
+          if (speechText) speak(speechText);
+        }
       }
     } catch (error) {
       console.error("Widget error:", error);
@@ -926,14 +961,17 @@ export function EmbeddableWidget({
 
         {/* Tab Bar */}
         <div style={styles.tabBar}>
-          <button onClick={() => setActiveTab("chat")} style={styles.tab(activeTab === "chat")}>
-            <MessageCircle size={16} /> Chat
+          <button onClick={() => setActiveTab("chat")} style={styles.tab(activeTab === "chat")} aria-label="Chat tab">
+            <MessageCircle size={16} aria-hidden="true" /> Chat
           </button>
-          <button onClick={() => setActiveTab("visual")} style={styles.tab(activeTab === "visual")}>
-            <Settings2 size={16} /> Visual
+          <button onClick={() => setActiveTab("visual")} style={styles.tab(activeTab === "visual")} aria-label="Visual settings tab">
+            <Settings2 size={16} aria-hidden="true" /> Visual
           </button>
-          <button onClick={() => setActiveTab("audit")} style={styles.tab(activeTab === "audit")}>
-            <ClipboardCheck size={16} /> Audit
+          <button onClick={() => setActiveTab("audit")} style={styles.tab(activeTab === "audit")} aria-label="Accessibility audit tab">
+            <ClipboardCheck size={16} aria-hidden="true" /> Audit
+          </button>
+          <button onClick={() => setActiveTab("settings")} style={styles.tab(activeTab === "settings")} aria-label="Settings tab">
+            <Volume2 size={16} aria-hidden="true" /> Speech
           </button>
         </div>
 
@@ -942,9 +980,9 @@ export function EmbeddableWidget({
           <>
             <div style={styles.messages}>
               {messages.length === 0 && (
-                <div style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
-                  <p style={{ marginBottom: "8px" }}>👋 Hi! I can help you navigate this page.</p>
-                  <p style={{ fontSize: "13px" }}>Ask me anything or use voice commands!</p>
+                <div style={{ textAlign: "center", color: "#374151", padding: "20px" }}>
+                  <p style={{ marginBottom: "8px", fontWeight: 500 }}>Hi! I can help you navigate this page.</p>
+                  <p style={{ fontSize: "13px", color: "#4b5563" }}>Ask me anything or use voice commands!</p>
                 </div>
               )}
               {messages.map((msg, i) => (
@@ -1169,6 +1207,81 @@ export function EmbeddableWidget({
             )}
           </div>
         )}
+
+        {/* Settings Tab */}
+        {activeTab === "settings" && (
+          <div style={styles.content}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              {/* Speech Rate */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Volume2 size={16} color="#374151" aria-hidden="true" />
+                    <span style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Speech Rate</span>
+                  </div>
+                  <span style={{ fontSize: "13px", color: "#374151", fontWeight: 500 }}>{settings.speechRate.toFixed(1)}x</span>
+                </div>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={2.0}
+                  step={0.1}
+                  value={settings.speechRate}
+                  onChange={(e) => updateSetting("speechRate", parseFloat(e.target.value))}
+                  style={styles.slider}
+                  aria-label="Speech rate slider"
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Slower (0.5x)</span>
+                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Faster (2.0x)</span>
+                </div>
+              </div>
+
+              {/* Speech Toggle */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {isSpeechEnabled ? <Volume2 size={16} color="#374151" aria-hidden="true" /> : <VolumeX size={16} color="#374151" aria-hidden="true" />}
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Enable Speech Output</span>
+                </div>
+                {renderToggle(isSpeechEnabled, toggleSpeech, "Toggle speech output")}
+              </div>
+
+              {/* Info Section */}
+              <div style={{ padding: "12px", background: "#f0f4f8", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <p style={{ fontSize: "13px", color: "#374151", lineHeight: 1.5 }}>
+                  <strong>Speech settings:</strong> Control how the assistant reads responses aloud. 
+                  Adjust the rate to speed up or slow down speech output.
+                </p>
+              </div>
+
+              {/* Test Speech Button */}
+              <button
+                onClick={() => {
+                  unlockAudio();
+                  speak("This is a test of the speech output at your selected rate.");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  padding: "12px",
+                  background: primaryColor,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+                aria-label="Test speech output"
+              >
+                <Volume2 size={16} aria-hidden="true" />
+                Test Speech
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <button onClick={() => setIsOpen(!isOpen)} style={styles.button()} aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}>
@@ -1176,6 +1289,7 @@ export function EmbeddableWidget({
       </button>
 
       <style>{`
+        @import url('https://fonts.cdnfonts.com/css/opendyslexic');
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -1199,13 +1313,17 @@ export function EmbeddableWidget({
           border: 2px solid white;
           box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
+        input:focus {
+          border-color: ${primaryColor} !important;
+          box-shadow: 0 0 0 2px ${primaryColor}33 !important;
+        }
         /* Accessibility CSS classes applied to host page */
         .a11y-text-scaled * { font-size: calc(1em * var(--a11y-text-scale, 1)) !important; }
         .a11y-line-height-scaled * { line-height: calc(1.5 * var(--a11y-line-height, 1)) !important; }
         .a11y-letter-spacing-scaled * { letter-spacing: var(--a11y-letter-spacing, 0) !important; }
         .a11y-high-contrast { filter: contrast(1.5) !important; }
         .a11y-inverted { filter: invert(1) hue-rotate(180deg) !important; }
-        .a11y-dyslexia-font * { font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important; }
+        .a11y-dyslexia-font * { font-family: 'OpenDyslexic', sans-serif !important; }
         .a11y-hide-images img { opacity: 0 !important; }
         .a11y-focus-highlight *:focus { outline: 3px solid ${primaryColor} !important; outline-offset: 2px !important; }
         .a11y-protanopia { filter: url(#protanopia-filter) !important; }
