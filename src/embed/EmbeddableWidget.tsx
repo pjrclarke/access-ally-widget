@@ -189,12 +189,48 @@ const createStyles = (primaryColor: string) => ({
     overflow: "hidden",
   }),
   header: (): React.CSSProperties => ({
-    background: primaryColor,
-    color: "white",
+    background: "#ffffff",
     padding: "16px",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    borderBottom: "1px solid #e5e7eb",
+  }),
+  headerIcon: (): React.CSSProperties => ({
+    width: "40px",
+    height: "40px",
+    borderRadius: "50%",
+    background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "white",
+  }),
+  headerText: (): React.CSSProperties => ({
+    display: "flex",
+    flexDirection: "column",
+  }),
+  headerTitle: (): React.CSSProperties => ({
+    fontWeight: 600,
+    fontSize: "15px",
+    margin: 0,
+    color: "#1f2937",
+  }),
+  headerSubtitle: (): React.CSSProperties => ({
+    fontSize: "12px",
+    color: "#6b7280",
+    margin: 0,
+  }),
+  headerButton: (): React.CSSProperties => ({
+    background: "transparent",
+    border: "none",
+    color: "#6b7280",
+    cursor: "pointer",
+    padding: "6px",
+    borderRadius: "6px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   }),
   tabBar: {
     display: "flex",
@@ -1009,17 +1045,26 @@ export function EmbeddableWidget({
       <div style={styles.panel(isOpen)} role="dialog" aria-label="Accessibility Assistant" aria-hidden={!isOpen}>
         {/* Header */}
         <div style={styles.header()}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Accessibility size={20} aria-hidden="true" />
-            <h2 style={{ fontWeight: 600, fontSize: "16px", margin: 0 }}>Accessibility Assistant</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={styles.headerIcon()}>
+              <Accessibility size={20} aria-hidden="true" />
+            </div>
+            <div style={styles.headerText()}>
+              <h2 style={styles.headerTitle()}>Accessibility Assistant</h2>
+              <p style={styles.headerSubtitle()}>
+                {activeTab === "chat" ? "Ask me anything about this page" : 
+                 activeTab === "visual" ? "Adjust visual settings" :
+                 activeTab === "audit" ? "Check page accessibility" : "Speech settings"}
+              </p>
+            </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             {activeTab === "chat" && (
-              <button onClick={toggleSpeech} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"} aria-pressed={isSpeechEnabled}>
+              <button onClick={toggleSpeech} style={styles.headerButton()} aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"} aria-pressed={isSpeechEnabled}>
                 {isSpeechEnabled ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
               </button>
             )}
-            <button onClick={() => setIsOpen(false)} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label="Close accessibility assistant">
+            <button onClick={() => setIsOpen(false)} style={styles.headerButton()} aria-label="Close accessibility assistant">
               <Minimize2 size={18} aria-hidden="true" />
             </button>
           </div>
