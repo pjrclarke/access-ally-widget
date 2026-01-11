@@ -14,9 +14,10 @@ const Embed = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [isLoadingKey, setIsLoadingKey] = useState(true);
 
-  // Get the hosted CDN URL (production would be your published domain)
+  // CDN URL for the widget bundle (hosted on jsDelivr via GitHub)
+  const widgetCdnUrl = "https://cdn.jsdelivr.net/gh/pjrclarke/access-ally-widget@main/dist-embed/a11y-widget.iife.js";
   const cdnUrl = window.location.origin;
-  const apiEndpoint = `${cdnUrl}/functions/v1/widget-chat`;
+  const apiEndpoint = "https://orkmsolbgmfcdylexioq.supabase.co/functions/v1/widget-chat";
 
   // Fetch the default API key on mount
   useEffect(() => {
@@ -50,7 +51,7 @@ const Embed = () => {
     apiKey: "${apiKey}"
   };
 </script>
-<script src="${cdnUrl}/a11y-widget.iife.js" defer></script>`;
+<script src="${widgetCdnUrl}" defer></script>`;
 
   const iframeEmbedCode = `<!-- A11y Widget - Iframe Embed (Recommended for testing) -->
 <iframe 
@@ -64,7 +65,7 @@ const Embed = () => {
   iframe:hover { pointer-events: auto; }
 </style>`;
 
-  const programmaticCode = `<script src="${cdnUrl}/a11y-widget.iife.js"></script>
+  const programmaticCode = `<script src="${widgetCdnUrl}"></script>
 <script>
   A11yWidget.init({
     position: "${position}",
@@ -199,19 +200,19 @@ const Embed = () => {
         </Card>
 
         {/* Script Embed */}
-        <Card className="opacity-60">
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Script Embed (CDN)
-              <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">Not Available Yet</span>
+            <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+              Script Embed (CDN) 
+              <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded">Ready to Use</span>
             </CardTitle>
-            <CardDescription>
-              For production use - requires building and hosting the widget bundle
+            <CardDescription className="text-blue-700 dark:text-blue-300">
+              Best for production - lightweight, no iframe needed
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">
-              <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
+              <pre className="bg-white dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm border">
                 <code>{scriptEmbedCode}</code>
               </pre>
               <Button
@@ -223,23 +224,17 @@ const Embed = () => {
                 {copied === "script" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-3 rounded-lg text-sm text-amber-800 dark:text-amber-200">
-              <strong>⚠️ Build Required:</strong> The <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">a11y-widget.iife.js</code> file must be built first. 
-              Run <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">npm run build:embed</code> locally, then host the generated file on a CDN.
-              <br /><br />
-              <strong>Use the Iframe Embed above for immediate testing!</strong>
-            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              ✅ Hosted on jsDelivr CDN - ready for production use!
+            </p>
           </CardContent>
         </Card>
 
         {/* Programmatic Init */}
-        <Card className="opacity-60">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Programmatic Initialization
-              <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">Not Available Yet</span>
-            </CardTitle>
-            <CardDescription>For dynamic loading or single-page apps (requires CDN bundle)</CardDescription>
+            <CardTitle>Programmatic Initialization</CardTitle>
+            <CardDescription>For dynamic loading or single-page apps</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="relative">
