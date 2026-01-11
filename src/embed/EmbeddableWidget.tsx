@@ -26,6 +26,8 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Keyboard,
+  Space,
   Minimize2,
   AlignVerticalSpaceAround,
 } from "lucide-react";
@@ -503,6 +505,57 @@ export function EmbeddableWidget({
     (key) => settings[key as keyof AccessibilitySettings] !== DEFAULT_SETTINGS[key as keyof AccessibilitySettings]
   );
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      
+      switch (e.key.toLowerCase()) {
+        case 'a':
+          e.preventDefault();
+          setIsOpen(prev => !prev);
+          break;
+        case 'r':
+          e.preventDefault();
+          updateSetting("readingGuide", !settings.readingGuide);
+          break;
+        case 'd':
+          e.preventDefault();
+          updateSetting("dyslexiaFont", !settings.dyslexiaFont);
+          break;
+        case 'h':
+          e.preventDefault();
+          updateSetting("contrastMode", settings.contrastMode === "high" ? "normal" : "high");
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          updateSetting("textScale", Math.min(150, settings.textScale + 10));
+          break;
+        case '-':
+          e.preventDefault();
+          updateSetting("textScale", Math.max(100, settings.textScale - 10));
+          break;
+        case '0':
+          e.preventDefault();
+          resetSettings();
+          break;
+      }
+    };
+    
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [settings, updateSetting]);
+
+  // Quick chat send helper
+  const sendQuickMessage = useCallback((text: string) => {
+    setInput(text);
+    setTimeout(() => {
+      const form = document.getElementById("widget-form") as HTMLFormElement;
+      if (form) form.requestSubmit();
+    }, 50);
+  }, []);
+
   // Run accessibility audit
   const runAudit = useCallback(() => {
     setIsScanning(true);
@@ -953,37 +1006,37 @@ export function EmbeddableWidget({
         </div>
       )}
 
-      <div style={styles.panel(isOpen)}>
+      <div style={styles.panel(isOpen)} role="dialog" aria-label="Accessibility Assistant" aria-hidden={!isOpen}>
         {/* Header */}
         <div style={styles.header()}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Accessibility size={20} />
-            <span style={{ fontWeight: 600 }}>Accessibility Assistant</span>
+            <Accessibility size={20} aria-hidden="true" />
+            <h2 style={{ fontWeight: 600, fontSize: "16px", margin: 0 }}>Accessibility Assistant</h2>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             {activeTab === "chat" && (
-              <button onClick={toggleSpeech} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"}>
-                {isSpeechEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              <button onClick={toggleSpeech} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"} aria-pressed={isSpeechEnabled}>
+                {isSpeechEnabled ? <Volume2 size={18} aria-hidden="true" /> : <VolumeX size={18} aria-hidden="true" />}
               </button>
             )}
-            <button onClick={() => setIsOpen(false)} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label="Minimize">
-              <Minimize2 size={18} />
+            <button onClick={() => setIsOpen(false)} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label="Close accessibility assistant">
+              <Minimize2 size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
 
         {/* Tab Bar */}
-        <div style={styles.tabBar}>
-          <button onClick={() => setActiveTab("chat")} style={styles.tab(activeTab === "chat")} aria-label="Chat tab">
+        <div style={styles.tabBar} role="tablist">
+          <button onClick={() => setActiveTab("chat")} style={styles.tab(activeTab === "chat")} role="tab" aria-selected={activeTab === "chat"}>
             <MessageCircle size={16} aria-hidden="true" /> Chat
           </button>
-          <button onClick={() => setActiveTab("visual")} style={styles.tab(activeTab === "visual")} aria-label="Visual settings tab">
+          <button onClick={() => setActiveTab("visual")} style={styles.tab(activeTab === "visual")} role="tab" aria-selected={activeTab === "visual"}>
             <Settings2 size={16} aria-hidden="true" /> Visual
           </button>
-          <button onClick={() => setActiveTab("audit")} style={styles.tab(activeTab === "audit")} aria-label="Accessibility audit tab">
+          <button onClick={() => setActiveTab("audit")} style={styles.tab(activeTab === "audit")} role="tab" aria-selected={activeTab === "audit"}>
             <ClipboardCheck size={16} aria-hidden="true" /> Audit
           </button>
-          <button onClick={() => setActiveTab("settings")} style={styles.tab(activeTab === "settings")} aria-label="Settings tab">
+          <button onClick={() => setActiveTab("settings")} style={styles.tab(activeTab === "settings")} role="tab" aria-selected={activeTab === "settings"}>
             <Volume2 size={16} aria-hidden="true" /> Speech
           </button>
         </div>
@@ -991,21 +1044,46 @@ export function EmbeddableWidget({
         {/* Chat Tab */}
         {activeTab === "chat" && (
           <>
-            <div style={styles.messages}>
-              {messages.length === 0 && (
-                <div style={{ textAlign: "center", color: "#374151", padding: "20px" }}>
-                  <p style={{ marginBottom: "8px", fontWeight: 500 }}>Hi! I can help you navigate this page.</p>
-                  <p style={{ fontSize: "13px", color: "#4b5563" }}>Ask me anything or use voice commands!</p>
+            <div style={styles.messages} role="log" aria-live="polite" aria-label="Chat messages">
+              {messages.length === 0 ? (
+                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#374151", padding: "20px" }}>
+                  <Accessibility size={48} color="#d1d5db" style={{ marginBottom: "16px" }} aria-hidden="true" />
+                  <p style={{ marginBottom: "8px", fontWeight: 500 }}>How can I help you today?</p>
+                  <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Ask about this page or use voice commands</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "280px" }}>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Summarize this page for me")}
+                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                    >
+                      Summarize this page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("What is this website about?")}
+                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                    >
+                      What is this website about?
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Help me navigate to the main content")}
+                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                    >
+                      Navigate to main content
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                messages.map((msg, i) => (
+                  <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
+                    {msg.content}
+                  </div>
+                ))
               )}
-              {messages.map((msg, i) => (
-                <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
-                  {msg.content}
-                </div>
-              ))}
-              {isLoading && (
+              {isLoading && messages.length > 0 && (
                 <div style={styles.assistantMessage()}>
-                  <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                  <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} aria-label="Loading response" />
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -1013,13 +1091,21 @@ export function EmbeddableWidget({
 
             <form id="widget-form" onSubmit={sendMessage} style={styles.inputContainer}>
               {isSpeechRecognitionSupported && (
-                <button type="button" onClick={handleVoiceToggle} style={styles.iconButton(isListening)} aria-label={isListening ? "Stop listening" : "Start voice input"}>
-                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                <button type="button" onClick={handleVoiceToggle} style={styles.iconButton(isListening)} aria-label={isListening ? "Stop listening" : "Start voice input"} aria-pressed={isListening}>
+                  {isListening ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
                 </button>
               )}
-              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isListening ? "Listening..." : "Type or speak..."} style={styles.input} disabled={isLoading} />
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isListening ? "Listening..." : "Type or speak..."}
+                style={styles.input}
+                disabled={isLoading}
+                aria-label="Message input"
+              />
               <button type="submit" disabled={isLoading || !input.trim()} style={{ ...styles.iconButton(true), opacity: isLoading || !input.trim() ? 0.5 : 1 }} aria-label="Send message">
-                <Send size={18} />
+                <Send size={18} aria-hidden="true" />
               </button>
             </form>
           </>
@@ -1053,15 +1139,40 @@ export function EmbeddableWidget({
                 <input type="range" min={100} max={200} step={25} value={settings.lineHeight} onChange={(e) => updateSetting("lineHeight", parseInt(e.target.value))} style={styles.slider} />
               </div>
 
+              {/* Letter Spacing */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Space size={16} color="#6b7280" aria-hidden="true" />
+                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Letter Spacing</span>
+                  </div>
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.letterSpacing}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={50}
+                  step={10}
+                  value={settings.letterSpacing}
+                  onChange={(e) => updateSetting("letterSpacing", parseInt(e.target.value))}
+                  style={styles.slider}
+                  aria-label="Letter spacing slider"
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
+                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Normal</span>
+                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Wide</span>
+                </div>
+              </div>
+
               {/* Contrast Mode */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <Contrast size={16} color="#6b7280" />
+                  <Contrast size={16} color="#6b7280" aria-hidden="true" />
                   <span style={{ fontSize: "14px", fontWeight: 500 }}>Contrast Mode</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
                   {(["normal", "high", "inverted"] as ContrastMode[]).map((mode) => (
-                    <button key={mode} onClick={() => updateSetting("contrastMode", mode)} style={styles.optionButton(settings.contrastMode === mode)}>
+                    <button key={mode} onClick={() => updateSetting("contrastMode", mode)} style={styles.optionButton(settings.contrastMode === mode)} aria-pressed={settings.contrastMode === mode}>
                       {mode.charAt(0).toUpperCase() + mode.slice(1)}
                     </button>
                   ))}
@@ -1071,32 +1182,44 @@ export function EmbeddableWidget({
               {/* Toggles */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <BookOpen size={16} color="#6b7280" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Dyslexia Font</span>
+                  <BookOpen size={16} color="#6b7280" aria-hidden="true" />
+                  <div>
+                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Dyslexia Font</span>
+                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Uses OpenDyslexic</span>
+                  </div>
                 </div>
                 {renderToggle(settings.dyslexiaFont, () => updateSetting("dyslexiaFont", !settings.dyslexiaFont), "Toggle dyslexia font")}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Ruler size={16} color="#6b7280" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Reading Guide</span>
+                  <Ruler size={16} color="#6b7280" aria-hidden="true" />
+                  <div>
+                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Reading Guide</span>
+                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Highlights current line</span>
+                  </div>
                 </div>
                 {renderToggle(settings.readingGuide, () => updateSetting("readingGuide", !settings.readingGuide), "Toggle reading guide")}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <ImageOff size={16} color="#6b7280" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Hide Images</span>
+                  <ImageOff size={16} color="#6b7280" aria-hidden="true" />
+                  <div>
+                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Hide Images</span>
+                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Reduces visual clutter</span>
+                  </div>
                 </div>
                 {renderToggle(settings.hideImages, () => updateSetting("hideImages", !settings.hideImages), "Toggle hide images")}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Focus size={16} color="#6b7280" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Focus Highlight</span>
+                  <Focus size={16} color="#6b7280" aria-hidden="true" />
+                  <div>
+                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Focus Highlight</span>
+                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Enhanced focus outlines</span>
+                  </div>
                 </div>
                 {renderToggle(settings.focusHighlight, () => updateSetting("focusHighlight", !settings.focusHighlight), "Toggle focus highlight")}
               </div>
@@ -1104,12 +1227,12 @@ export function EmbeddableWidget({
               {/* Color Vision */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <Eye size={16} color="#6b7280" />
+                  <Eye size={16} color="#6b7280" aria-hidden="true" />
                   <span style={{ fontSize: "14px", fontWeight: 500 }}>Color Vision</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                   {(["normal", "protanopia", "deuteranopia", "tritanopia"] as ColorBlindMode[]).map((mode) => (
-                    <button key={mode} onClick={() => updateSetting("colorBlindMode", mode)} style={styles.optionButton(settings.colorBlindMode === mode)}>
+                    <button key={mode} onClick={() => updateSetting("colorBlindMode", mode)} style={styles.optionButton(settings.colorBlindMode === mode)} aria-pressed={settings.colorBlindMode === mode}>
                       {mode.charAt(0).toUpperCase() + mode.slice(1)}
                     </button>
                   ))}
@@ -1117,10 +1240,27 @@ export function EmbeddableWidget({
               </div>
 
               {/* Reset */}
-              <button onClick={resetSettings} disabled={!hasCustomSettings} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: hasCustomSettings ? "pointer" : "not-allowed", opacity: hasCustomSettings ? 1 : 0.5, fontSize: "14px" }}>
-                <RotateCcw size={16} />
+              <button onClick={resetSettings} disabled={!hasCustomSettings} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: hasCustomSettings ? "pointer" : "not-allowed", opacity: hasCustomSettings ? 1 : 0.5, fontSize: "14px" }} aria-disabled={!hasCustomSettings}>
+                <RotateCcw size={16} aria-hidden="true" />
                 Reset to Defaults
               </button>
+
+              {/* Keyboard Shortcuts */}
+              <div style={{ paddingTop: "12px", borderTop: "1px solid #e5e7eb" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <Keyboard size={14} color="#6b7280" aria-hidden="true" />
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Keyboard Shortcuts</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: "11px", color: "#6b7280" }}>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+A</kbd> Toggle Panel</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+R</kbd> Reading Guide</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+D</kbd> Dyslexia Font</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+H</kbd> High Contrast</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt++</kbd> Increase Text</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+-</kbd> Decrease Text</span>
+                  <span style={{ gridColumn: "span 2" }}><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+0</kbd> Reset All</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1297,8 +1437,16 @@ export function EmbeddableWidget({
         )}
       </div>
 
-      <button onClick={() => setIsOpen(!isOpen)} style={styles.button()} aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}>
-        {isOpen ? <X size={24} color="white" /> : <MessageCircle size={24} color="white" />}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          ...styles.button(),
+          transform: isOpen ? "rotate(90deg) scale(0.9)" : "none",
+        }}
+        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}
+        aria-expanded={isOpen}
+      >
+        {isOpen ? <X size={24} color="white" aria-hidden="true" /> : <Accessibility size={24} color="white" aria-hidden="true" />}
       </button>
 
       <style>{`
