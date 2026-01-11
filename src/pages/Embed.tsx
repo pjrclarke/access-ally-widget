@@ -199,11 +199,14 @@ const Embed = () => {
         </Card>
 
         {/* Script Embed */}
-        <Card>
+        <Card className="opacity-60">
           <CardHeader>
-            <CardTitle>Script Embed (CDN)</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Script Embed (CDN)
+              <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">Not Available Yet</span>
+            </CardTitle>
             <CardDescription>
-              For production use - requires hosting the widget bundle
+              For production use - requires building and hosting the widget bundle
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -220,18 +223,23 @@ const Embed = () => {
                 {copied === "script" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Note: The <code>a11y-widget.iife.js</code> file needs to be built and hosted. 
-              Run <code>npm run build:embed</code> to generate it.
-            </p>
+            <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-3 rounded-lg text-sm text-amber-800 dark:text-amber-200">
+              <strong>⚠️ Build Required:</strong> The <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">a11y-widget.iife.js</code> file must be built first. 
+              Run <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">npm run build:embed</code> locally, then host the generated file on a CDN.
+              <br /><br />
+              <strong>Use the Iframe Embed above for immediate testing!</strong>
+            </div>
           </CardContent>
         </Card>
 
         {/* Programmatic Init */}
-        <Card>
+        <Card className="opacity-60">
           <CardHeader>
-            <CardTitle>Programmatic Initialization</CardTitle>
-            <CardDescription>For dynamic loading or single-page apps</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              Programmatic Initialization
+              <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded">Not Available Yet</span>
+            </CardTitle>
+            <CardDescription>For dynamic loading or single-page apps (requires CDN bundle)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="relative">
