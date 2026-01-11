@@ -9,6 +9,25 @@ import {
   VolumeX,
   Loader2,
   Accessibility,
+  Settings2,
+  ClipboardCheck,
+  Type,
+  Contrast,
+  BookOpen,
+  Ruler,
+  Eye,
+  ImageOff,
+  Focus,
+  RotateCcw,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Minimize2,
+  AlignVerticalSpaceAround,
 } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
@@ -25,8 +44,75 @@ interface EmbeddableWidgetProps {
   apiKey?: string;
 }
 
+type TabType = "chat" | "visual" | "audit";
+type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
+type ContrastMode = "normal" | "high" | "inverted";
+
+interface AccessibilitySettings {
+  textScale: number;
+  lineHeight: number;
+  letterSpacing: number;
+  contrastMode: ContrastMode;
+  dyslexiaFont: boolean;
+  readingGuide: boolean;
+  colorBlindMode: ColorBlindMode;
+  hideImages: boolean;
+  focusHighlight: boolean;
+}
+
+interface AuditIssue {
+  id: string;
+  type: "error" | "warning" | "info";
+  wcagCriteria: string;
+  title: string;
+  description: string;
+  element?: string;
+  howToFix: string;
+}
+
+interface AuditResult {
+  score: number;
+  issues: AuditIssue[];
+  passedChecks: number;
+  totalChecks: number;
+}
+
+const DEFAULT_SETTINGS: AccessibilitySettings = {
+  textScale: 100,
+  lineHeight: 100,
+  letterSpacing: 0,
+  contrastMode: "normal",
+  dyslexiaFont: false,
+  readingGuide: false,
+  colorBlindMode: "normal",
+  hideImages: false,
+  focusHighlight: false,
+};
+
+const STORAGE_KEY = "a11y-embed-settings";
+
+function loadSettings(): AccessibilitySettings {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch {
+    // Ignore
+  }
+  return DEFAULT_SETTINGS;
+}
+
+function saveSettings(settings: AccessibilitySettings): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Ignore
+  }
+}
+
 // Inline styles to avoid Tailwind dependency in embed
-const styles = {
+const createStyles = (primaryColor: string) => ({
   container: (position: string): React.CSSProperties => ({
     position: "fixed",
     bottom: "20px",
@@ -34,7 +120,7 @@ const styles = {
     zIndex: 9999,
     fontFamily: "system-ui, -apple-system, sans-serif",
   }),
-  button: (primaryColor: string): React.CSSProperties => ({
+  button: (): React.CSSProperties => ({
     width: "56px",
     height: "56px",
     borderRadius: "50%",
@@ -51,8 +137,8 @@ const styles = {
     position: "absolute",
     bottom: "70px",
     right: "0",
-    width: "min(380px, calc(100vw - 40px))",
-    height: "min(500px, calc(100vh - 120px))",
+    width: "min(400px, calc(100vw - 40px))",
+    height: "min(580px, calc(100vh - 120px))",
     background: "#ffffff",
     borderRadius: "16px",
     boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
@@ -60,7 +146,7 @@ const styles = {
     flexDirection: "column",
     overflow: "hidden",
   }),
-  header: (primaryColor: string): React.CSSProperties => ({
+  header: (): React.CSSProperties => ({
     background: primaryColor,
     color: "white",
     padding: "16px",
@@ -68,6 +154,31 @@ const styles = {
     alignItems: "center",
     justifyContent: "space-between",
   }),
+  tabBar: {
+    display: "flex",
+    borderBottom: "1px solid #e5e7eb",
+  } as React.CSSProperties,
+  tab: (isActive: boolean): React.CSSProperties => ({
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "12px 8px",
+    fontSize: "13px",
+    fontWeight: 500,
+    color: isActive ? primaryColor : "#6b7280",
+    background: "transparent",
+    border: "none",
+    borderBottom: isActive ? `2px solid ${primaryColor}` : "2px solid transparent",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  }),
+  content: {
+    flex: 1,
+    overflowY: "auto" as const,
+    padding: "16px",
+  },
   messages: {
     flex: 1,
     overflowY: "auto" as const,
@@ -84,7 +195,7 @@ const styles = {
     maxWidth: "80%",
     fontSize: "14px",
   },
-  assistantMessage: (primaryColor: string): React.CSSProperties => ({
+  assistantMessage: (): React.CSSProperties => ({
     alignSelf: "flex-start",
     background: primaryColor + "15",
     padding: "10px 14px",
@@ -107,7 +218,7 @@ const styles = {
     fontSize: "14px",
     outline: "none",
   },
-  iconButton: (primaryColor: string, active?: boolean): React.CSSProperties => ({
+  iconButton: (active?: boolean): React.CSSProperties => ({
     width: "40px",
     height: "40px",
     borderRadius: "50%",
@@ -120,7 +231,65 @@ const styles = {
     justifyContent: "center",
     transition: "all 0.2s",
   }),
-};
+  slider: {
+    width: "100%",
+    height: "8px",
+    borderRadius: "4px",
+    appearance: "none" as const,
+    background: "#e5e7eb",
+    outline: "none",
+    cursor: "pointer",
+  },
+  toggleSwitch: (isOn: boolean): React.CSSProperties => ({
+    width: "44px",
+    height: "24px",
+    borderRadius: "12px",
+    background: isOn ? primaryColor : "#e5e7eb",
+    border: "none",
+    cursor: "pointer",
+    position: "relative",
+    transition: "background 0.2s",
+  }),
+  toggleThumb: (isOn: boolean): React.CSSProperties => ({
+    position: "absolute",
+    top: "2px",
+    left: isOn ? "22px" : "2px",
+    width: "20px",
+    height: "20px",
+    borderRadius: "50%",
+    background: "white",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+    transition: "left 0.2s",
+  }),
+  optionButton: (isActive: boolean): React.CSSProperties => ({
+    padding: "8px 12px",
+    fontSize: "13px",
+    borderRadius: "8px",
+    border: isActive ? `2px solid ${primaryColor}` : "1px solid #e5e7eb",
+    background: isActive ? primaryColor + "15" : "white",
+    color: isActive ? primaryColor : "#374151",
+    cursor: "pointer",
+    transition: "all 0.2s",
+  }),
+  issueCard: (type: string): React.CSSProperties => ({
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    overflow: "hidden",
+    borderLeft: `4px solid ${type === "error" ? "#ef4444" : type === "warning" ? "#f59e0b" : "#6366f1"}`,
+  }),
+  scoreBar: (score: number): React.CSSProperties => ({
+    height: "8px",
+    borderRadius: "4px",
+    background: "#e5e7eb",
+    overflow: "hidden",
+  }),
+  scoreBarFill: (score: number): React.CSSProperties => ({
+    width: `${score}%`,
+    height: "100%",
+    background: score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444",
+    transition: "width 0.5s",
+  }),
+});
 
 export function EmbeddableWidget({
   position = "bottom-right",
@@ -128,12 +297,21 @@ export function EmbeddableWidget({
   apiEndpoint,
   apiKey,
 }: EmbeddableWidgetProps) {
+  const styles = createStyles(primaryColor);
+  
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
   const [conversationMode, setConversationMode] = useState(false);
+  const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
+  const [readingGuideY, setReadingGuideY] = useState(0);
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wasSpeakingRef = useRef(false);
 
@@ -145,7 +323,6 @@ export function EmbeddableWidget({
   const handleVoiceResult = useCallback((finalTranscript: string) => {
     if (finalTranscript.trim()) {
       setInput(finalTranscript);
-      // Auto-send after voice input
       setTimeout(() => {
         const form = document.getElementById("widget-form") as HTMLFormElement;
         if (form) form.requestSubmit();
@@ -164,7 +341,7 @@ export function EmbeddableWidget({
     autoSendDelay: 1500,
   });
 
-  // Auto-restart listening after AI finishes speaking in conversation mode
+  // Auto-restart listening after AI finishes speaking
   useEffect(() => {
     if (wasSpeakingRef.current && !isSpeaking && conversationMode && !isListening) {
       const timer = setTimeout(() => {
@@ -181,6 +358,324 @@ export function EmbeddableWidget({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Update setting helper
+  const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
+    key: K,
+    value: AccessibilitySettings[K]
+  ) => {
+    setSettings((prev) => {
+      const newSettings = { ...prev, [key]: value };
+      saveSettings(newSettings);
+      return newSettings;
+    });
+  }, []);
+
+  // Apply visual settings to the page
+  useEffect(() => {
+    const root = document.documentElement;
+    
+    // Text scaling
+    if (settings.textScale !== 100) {
+      root.style.setProperty("--a11y-text-scale", String(settings.textScale / 100));
+      root.classList.add("a11y-text-scaled");
+    } else {
+      root.style.removeProperty("--a11y-text-scale");
+      root.classList.remove("a11y-text-scaled");
+    }
+    
+    // Line height
+    if (settings.lineHeight !== 100) {
+      root.style.setProperty("--a11y-line-height", String(settings.lineHeight / 100));
+      root.classList.add("a11y-line-height-scaled");
+    } else {
+      root.style.removeProperty("--a11y-line-height");
+      root.classList.remove("a11y-line-height-scaled");
+    }
+    
+    // Letter spacing
+    if (settings.letterSpacing !== 0) {
+      root.style.setProperty("--a11y-letter-spacing", `${settings.letterSpacing / 100}em`);
+      root.classList.add("a11y-letter-spacing-scaled");
+    } else {
+      root.style.removeProperty("--a11y-letter-spacing");
+      root.classList.remove("a11y-letter-spacing-scaled");
+    }
+    
+    // Contrast modes
+    root.classList.remove("a11y-high-contrast", "a11y-inverted");
+    if (settings.contrastMode === "high") {
+      root.classList.add("a11y-high-contrast");
+    } else if (settings.contrastMode === "inverted") {
+      root.classList.add("a11y-inverted");
+    }
+    
+    // Dyslexia font
+    root.classList.toggle("a11y-dyslexia-font", settings.dyslexiaFont);
+    
+    // Reading guide
+    root.classList.toggle("a11y-reading-guide-active", settings.readingGuide);
+    
+    // Color blind modes
+    root.classList.remove("a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia");
+    if (settings.colorBlindMode !== "normal") {
+      root.classList.add(`a11y-${settings.colorBlindMode}`);
+    }
+    
+    // Hide images
+    root.classList.toggle("a11y-hide-images", settings.hideImages);
+    
+    // Focus highlight
+    root.classList.toggle("a11y-focus-highlight", settings.focusHighlight);
+    
+    return () => {
+      root.classList.remove(
+        "a11y-high-contrast", "a11y-inverted", "a11y-dyslexia-font",
+        "a11y-reading-guide-active", "a11y-protanopia", "a11y-deuteranopia", "a11y-tritanopia",
+        "a11y-text-scaled", "a11y-line-height-scaled", "a11y-letter-spacing-scaled",
+        "a11y-hide-images", "a11y-focus-highlight"
+      );
+      root.style.removeProperty("--a11y-text-scale");
+      root.style.removeProperty("--a11y-line-height");
+      root.style.removeProperty("--a11y-letter-spacing");
+    };
+  }, [settings]);
+
+  // Reading guide mouse tracking
+  useEffect(() => {
+    if (!settings.readingGuide) return;
+    const handleMouseMove = (e: MouseEvent) => setReadingGuideY(e.clientY);
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [settings.readingGuide]);
+
+  const resetSettings = () => {
+    setSettings(DEFAULT_SETTINGS);
+    saveSettings(DEFAULT_SETTINGS);
+  };
+
+  const hasCustomSettings = Object.keys(DEFAULT_SETTINGS).some(
+    (key) => settings[key as keyof AccessibilitySettings] !== DEFAULT_SETTINGS[key as keyof AccessibilitySettings]
+  );
+
+  // Run accessibility audit
+  const runAudit = useCallback(() => {
+    setIsScanning(true);
+    
+    setTimeout(() => {
+      const issues: AuditIssue[] = [];
+      let passedChecks = 0;
+      const totalChecks = 12;
+
+      // 1. Images without alt
+      const imagesWithoutAlt = document.querySelectorAll('img:not([alt]), img[alt=""]');
+      if (imagesWithoutAlt.length > 0) {
+        issues.push({
+          id: "img-alt",
+          type: "error",
+          wcagCriteria: "1.1.1",
+          title: "Images missing alt text",
+          description: `${imagesWithoutAlt.length} image(s) are missing alternative text.`,
+          element: `<img src="...">`,
+          howToFix: "Add descriptive alt attributes to all images.",
+        });
+      } else passedChecks++;
+
+      // 2. Empty links
+      const emptyLinks = document.querySelectorAll('a:not([aria-label])');
+      let emptyLinkCount = 0;
+      emptyLinks.forEach((link) => {
+        if (!link.textContent?.trim() && !link.querySelector('img[alt]')) emptyLinkCount++;
+      });
+      if (emptyLinkCount > 0) {
+        issues.push({
+          id: "empty-links",
+          type: "error",
+          wcagCriteria: "2.4.4",
+          title: "Empty or unclear links",
+          description: `${emptyLinkCount} link(s) have no accessible text.`,
+          element: `<a href="..."></a>`,
+          howToFix: "Add descriptive text or aria-label to links.",
+        });
+      } else passedChecks++;
+
+      // 3. Form inputs without labels
+      const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea');
+      let unlabeledInputs = 0;
+      inputs.forEach((input) => {
+        const id = input.id;
+        const hasLabel = id && document.querySelector(`label[for="${id}"]`);
+        const hasAriaLabel = input.hasAttribute('aria-label') || input.hasAttribute('aria-labelledby');
+        const isInsideLabel = input.closest('label');
+        if (!hasLabel && !hasAriaLabel && !isInsideLabel) unlabeledInputs++;
+      });
+      if (unlabeledInputs > 0) {
+        issues.push({
+          id: "form-labels",
+          type: "error",
+          wcagCriteria: "1.3.1",
+          title: "Form inputs missing labels",
+          description: `${unlabeledInputs} form field(s) are missing labels.`,
+          element: `<input type="text">`,
+          howToFix: "Associate inputs with <label> elements.",
+        });
+      } else passedChecks++;
+
+      // 4. Missing language
+      const htmlLang = document.documentElement.getAttribute('lang');
+      if (!htmlLang) {
+        issues.push({
+          id: "html-lang",
+          type: "error",
+          wcagCriteria: "3.1.1",
+          title: "Missing page language",
+          description: "The page language is not specified.",
+          element: `<html>`,
+          howToFix: 'Add lang="en" to the <html> element.',
+        });
+      } else passedChecks++;
+
+      // 5. Missing title
+      if (!document.title?.trim()) {
+        issues.push({
+          id: "page-title",
+          type: "error",
+          wcagCriteria: "2.4.2",
+          title: "Missing page title",
+          description: "The page has no title.",
+          element: `<title></title>`,
+          howToFix: "Add a descriptive <title> element.",
+        });
+      } else passedChecks++;
+
+      // 6. H1 checks
+      const h1s = document.querySelectorAll('h1');
+      if (h1s.length === 0) {
+        issues.push({
+          id: "missing-h1",
+          type: "warning",
+          wcagCriteria: "1.3.1",
+          title: "Missing main heading",
+          description: "No H1 heading found.",
+          element: `<h1>...</h1>`,
+          howToFix: "Add a single H1 heading.",
+        });
+      } else if (h1s.length > 1) {
+        issues.push({
+          id: "multiple-h1",
+          type: "warning",
+          wcagCriteria: "1.3.1",
+          title: "Multiple H1 headings",
+          description: `${h1s.length} H1 headings found.`,
+          element: `<h1>...</h1>`,
+          howToFix: "Use only one H1 per page.",
+        });
+      } else passedChecks++;
+
+      // 7. Skipped heading levels
+      const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+      let skippedLevels = false;
+      let lastLevel = 0;
+      headings.forEach((h) => {
+        const level = parseInt(h.tagName[1]);
+        if (lastLevel > 0 && level > lastLevel + 1) skippedLevels = true;
+        lastLevel = level;
+      });
+      if (skippedLevels) {
+        issues.push({
+          id: "heading-order",
+          type: "warning",
+          wcagCriteria: "1.3.1",
+          title: "Skipped heading levels",
+          description: "Headings skip levels (e.g., H2 to H4).",
+          element: `<h2>...<h4>`,
+          howToFix: "Use headings in order.",
+        });
+      } else passedChecks++;
+
+      // 8. Buttons without names
+      const buttons = document.querySelectorAll('button, [role="button"]');
+      let unlabeledButtons = 0;
+      buttons.forEach((btn) => {
+        if (!btn.textContent?.trim() && !btn.hasAttribute('aria-label') && !btn.hasAttribute('title')) {
+          unlabeledButtons++;
+        }
+      });
+      if (unlabeledButtons > 0) {
+        issues.push({
+          id: "button-names",
+          type: "error",
+          wcagCriteria: "4.1.2",
+          title: "Buttons missing names",
+          description: `${unlabeledButtons} button(s) have no accessible name.`,
+          element: `<button></button>`,
+          howToFix: "Add text or aria-label to buttons.",
+        });
+      } else passedChecks++;
+
+      // 9. Skip link
+      const skipLink = document.querySelector('a[href^="#main"], a[href^="#content"], [class*="skip"]');
+      if (!skipLink) {
+        issues.push({
+          id: "skip-link",
+          type: "info",
+          wcagCriteria: "2.4.1",
+          title: "No skip link found",
+          description: "A skip link helps keyboard users.",
+          element: `<a href="#main">`,
+          howToFix: "Add a 'Skip to main content' link.",
+        });
+      } else passedChecks++;
+
+      // 10. Main landmark
+      if (!document.querySelector('main, [role="main"]')) {
+        issues.push({
+          id: "landmark-main",
+          type: "warning",
+          wcagCriteria: "1.3.1",
+          title: "Missing main landmark",
+          description: "No <main> element found.",
+          element: `<main>...</main>`,
+          howToFix: "Wrap content in <main>.",
+        });
+      } else passedChecks++;
+
+      // 11. Nav landmark
+      if (!document.querySelector('nav, [role="navigation"]')) {
+        issues.push({
+          id: "landmark-nav",
+          type: "info",
+          wcagCriteria: "1.3.1",
+          title: "Missing navigation landmark",
+          description: "No <nav> element found.",
+          element: `<nav>...</nav>`,
+          howToFix: "Wrap navigation in <nav>.",
+        });
+      } else passedChecks++;
+
+      // 12. Positive tabindex
+      const badTabindex = document.querySelectorAll('[tabindex]:not([tabindex="0"]):not([tabindex="-1"])');
+      let positiveTabindex = 0;
+      badTabindex.forEach((el) => {
+        if (parseInt(el.getAttribute('tabindex') || '0') > 0) positiveTabindex++;
+      });
+      if (positiveTabindex > 0) {
+        issues.push({
+          id: "tabindex-positive",
+          type: "warning",
+          wcagCriteria: "2.4.3",
+          title: "Positive tabindex values",
+          description: `${positiveTabindex} element(s) have tabindex > 0.`,
+          element: `tabindex="1"`,
+          howToFix: "Use tabindex=\"0\" or \"-1\" only.",
+        });
+      } else passedChecks++;
+
+      const score = Math.round((passedChecks / totalChecks) * 100);
+      setAuditResult({ score, issues, passedChecks, totalChecks });
+      setIsScanning(false);
+    }, 500);
+  }, []);
 
   const getPageContext = () => {
     const mainContent = document.body.innerText.slice(0, 3000);
@@ -214,8 +709,6 @@ export function EmbeddableWidget({
         const selectors = [
           `#${elementTarget}`,
           `[aria-label*="${elementTarget}" i]`,
-          `button:has-text("${elementTarget}")`,
-          `a:has-text("${elementTarget}")`,
         ];
 
         let element: Element | null = null;
@@ -224,7 +717,6 @@ export function EmbeddableWidget({
             element = document.querySelector(selector);
             if (element) break;
           } catch {
-            // Try text content match
             const allElements = document.querySelectorAll("a, button, input, section, [id]");
             element = Array.from(allElements).find(
               (el) =>
@@ -269,33 +761,23 @@ export function EmbeddableWidget({
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsLoading(true);
 
-    if (isListening) {
-      stopListening();
-    }
+    if (isListening) stopListening();
 
     try {
       const context = getPageContext();
       const endpoint = apiEndpoint || `${window.location.origin}/functions/v1/widget-chat`;
 
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (apiKey) {
-        headers["x-api-key"] = apiKey;
-      }
+      if (apiKey) headers["x-api-key"] = apiKey;
 
       const response = await fetch(endpoint, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          message: userMessage,
-          ...context,
-        }),
+        body: JSON.stringify({ message: userMessage, ...context }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
+      if (!response.ok) throw new Error("Failed to get response");
 
-      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let fullResponse = "";
@@ -322,10 +804,7 @@ export function EmbeddableWidget({
                   fullResponse += content;
                   setMessages((prev) => {
                     const updated = [...prev];
-                    updated[updated.length - 1] = {
-                      role: "assistant",
-                      content: fullResponse,
-                    };
+                    updated[updated.length - 1] = { role: "assistant", content: fullResponse };
                     return updated;
                   });
                 }
@@ -336,11 +815,8 @@ export function EmbeddableWidget({
           }
         }
 
-        // Process actions and speak
         const cleanedResponse = parseAndExecuteActions(fullResponse);
-        if (isSpeechEnabled && cleanedResponse) {
-          speak(cleanedResponse);
-        }
+        if (isSpeechEnabled && cleanedResponse) speak(cleanedResponse);
       }
     } catch (error) {
       console.error("Widget error:", error);
@@ -355,7 +831,6 @@ export function EmbeddableWidget({
 
   const handleVoiceToggle = () => {
     unlockAudio();
-
     if (isListening) {
       stopListening();
       setConversationMode(false);
@@ -367,115 +842,336 @@ export function EmbeddableWidget({
 
   const toggleSpeech = () => {
     unlockAudio();
-    if (isSpeechEnabled) {
-      stopSpeaking();
-    }
+    if (isSpeechEnabled) stopSpeaking();
     setIsSpeechEnabled(!isSpeechEnabled);
   };
 
+  const exportAuditJSON = () => {
+    if (!auditResult) return;
+    const report = {
+      url: window.location.href,
+      title: document.title,
+      scannedAt: new Date().toISOString(),
+      score: auditResult.score,
+      passedChecks: auditResult.passedChecks,
+      totalChecks: auditResult.totalChecks,
+      issues: auditResult.issues,
+    };
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `accessibility-audit-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const renderToggle = (isOn: boolean, onChange: () => void, label: string) => (
+    <button
+      onClick={onChange}
+      style={styles.toggleSwitch(isOn)}
+      aria-label={label}
+      aria-pressed={isOn}
+    >
+      <span style={styles.toggleThumb(isOn)} />
+    </button>
+  );
+
   return (
     <div style={styles.container(position)}>
+      {/* SVG Filters for Color Blindness */}
+      <svg style={{ position: "absolute", height: 0, width: 0 }} aria-hidden="true">
+        <defs>
+          <filter id="protanopia-filter">
+            <feColorMatrix type="matrix" values="0.567, 0.433, 0, 0, 0  0.558, 0.442, 0, 0, 0  0, 0.242, 0.758, 0, 0  0, 0, 0, 1, 0" />
+          </filter>
+          <filter id="deuteranopia-filter">
+            <feColorMatrix type="matrix" values="0.625, 0.375, 0, 0, 0  0.7, 0.3, 0, 0, 0  0, 0.3, 0.7, 0, 0  0, 0, 0, 1, 0" />
+          </filter>
+          <filter id="tritanopia-filter">
+            <feColorMatrix type="matrix" values="0.95, 0.05, 0, 0, 0  0, 0.433, 0.567, 0, 0  0, 0.475, 0.525, 0, 0  0, 0, 0, 1, 0" />
+          </filter>
+        </defs>
+      </svg>
+
+      {/* Reading Guide Overlay */}
+      {settings.readingGuide && (
+        <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9998 }} aria-hidden="true">
+          <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: Math.max(0, readingGuideY - 20), background: "rgba(0,0,0,0.4)", transition: "height 75ms" }} />
+          <div style={{ position: "absolute", left: 0, right: 0, height: 40, top: Math.max(0, readingGuideY - 20), borderTop: `2px solid ${primaryColor}`, borderBottom: `2px solid ${primaryColor}` }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: readingGuideY + 20, background: "rgba(0,0,0,0.4)", transition: "top 75ms" }} />
+        </div>
+      )}
+
       <div style={styles.panel(isOpen)}>
-        <div style={styles.header(primaryColor)}>
+        {/* Header */}
+        <div style={styles.header()}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <Accessibility size={20} />
             <span style={{ fontWeight: 600 }}>Accessibility Assistant</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <button
-              onClick={toggleSpeech}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "white",
-                cursor: "pointer",
-                padding: "4px",
-              }}
-              aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"}
-            >
-              {isSpeechEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-            </button>
-            <button
-              onClick={() => setIsOpen(false)}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "white",
-                cursor: "pointer",
-                padding: "4px",
-              }}
-              aria-label="Close"
-            >
-              <X size={20} />
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            {activeTab === "chat" && (
+              <button onClick={toggleSpeech} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label={isSpeechEnabled ? "Disable speech" : "Enable speech"}>
+                {isSpeechEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+            )}
+            <button onClick={() => setIsOpen(false)} style={{ background: "transparent", border: "none", color: "white", cursor: "pointer", padding: "4px" }} aria-label="Minimize">
+              <Minimize2 size={18} />
             </button>
           </div>
         </div>
 
-        <div style={styles.messages}>
-          {messages.length === 0 && (
-            <div style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
-              <p style={{ marginBottom: "8px" }}>👋 Hi! I can help you navigate this page.</p>
-              <p style={{ fontSize: "13px" }}>Ask me anything or use voice commands!</p>
-            </div>
-          )}
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              style={
-                msg.role === "user"
-                  ? styles.userMessage
-                  : styles.assistantMessage(primaryColor)
-              }
-            >
-              {msg.content}
-            </div>
-          ))}
-          {isLoading && (
-            <div style={styles.assistantMessage(primaryColor)}>
-              <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+        {/* Tab Bar */}
+        <div style={styles.tabBar}>
+          <button onClick={() => setActiveTab("chat")} style={styles.tab(activeTab === "chat")}>
+            <MessageCircle size={16} /> Chat
+          </button>
+          <button onClick={() => setActiveTab("visual")} style={styles.tab(activeTab === "visual")}>
+            <Settings2 size={16} /> Visual
+          </button>
+          <button onClick={() => setActiveTab("audit")} style={styles.tab(activeTab === "audit")}>
+            <ClipboardCheck size={16} /> Audit
+          </button>
         </div>
 
-        <form id="widget-form" onSubmit={sendMessage} style={styles.inputContainer}>
-          {isSpeechRecognitionSupported && (
-            <button
-              type="button"
-              onClick={handleVoiceToggle}
-              style={styles.iconButton(primaryColor, isListening)}
-              aria-label={isListening ? "Stop listening" : "Start voice input"}
-            >
-              {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          )}
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={isListening ? "Listening..." : "Type or speak..."}
-            style={styles.input}
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            style={{
-              ...styles.iconButton(primaryColor, true),
-              opacity: isLoading || !input.trim() ? 0.5 : 1,
-            }}
-            aria-label="Send message"
-          >
-            <Send size={18} />
-          </button>
-        </form>
+        {/* Chat Tab */}
+        {activeTab === "chat" && (
+          <>
+            <div style={styles.messages}>
+              {messages.length === 0 && (
+                <div style={{ textAlign: "center", color: "#6b7280", padding: "20px" }}>
+                  <p style={{ marginBottom: "8px" }}>👋 Hi! I can help you navigate this page.</p>
+                  <p style={{ fontSize: "13px" }}>Ask me anything or use voice commands!</p>
+                </div>
+              )}
+              {messages.map((msg, i) => (
+                <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
+                  {msg.content}
+                </div>
+              ))}
+              {isLoading && (
+                <div style={styles.assistantMessage()}>
+                  <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <form id="widget-form" onSubmit={sendMessage} style={styles.inputContainer}>
+              {isSpeechRecognitionSupported && (
+                <button type="button" onClick={handleVoiceToggle} style={styles.iconButton(isListening)} aria-label={isListening ? "Stop listening" : "Start voice input"}>
+                  {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                </button>
+              )}
+              <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder={isListening ? "Listening..." : "Type or speak..."} style={styles.input} disabled={isLoading} />
+              <button type="submit" disabled={isLoading || !input.trim()} style={{ ...styles.iconButton(true), opacity: isLoading || !input.trim() ? 0.5 : 1 }} aria-label="Send message">
+                <Send size={18} />
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* Visual Tab */}
+        {activeTab === "visual" && (
+          <div style={styles.content}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              {/* Text Size */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Type size={16} color="#6b7280" />
+                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Text Size</span>
+                  </div>
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.textScale}%</span>
+                </div>
+                <input type="range" min={100} max={150} step={10} value={settings.textScale} onChange={(e) => updateSetting("textScale", parseInt(e.target.value))} style={styles.slider} />
+              </div>
+
+              {/* Line Spacing */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <AlignVerticalSpaceAround size={16} color="#6b7280" />
+                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Line Spacing</span>
+                  </div>
+                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.lineHeight}%</span>
+                </div>
+                <input type="range" min={100} max={200} step={25} value={settings.lineHeight} onChange={(e) => updateSetting("lineHeight", parseInt(e.target.value))} style={styles.slider} />
+              </div>
+
+              {/* Contrast Mode */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <Contrast size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Contrast Mode</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
+                  {(["normal", "high", "inverted"] as ContrastMode[]).map((mode) => (
+                    <button key={mode} onClick={() => updateSetting("contrastMode", mode)} style={styles.optionButton(settings.contrastMode === mode)}>
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggles */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <BookOpen size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Dyslexia Font</span>
+                </div>
+                {renderToggle(settings.dyslexiaFont, () => updateSetting("dyslexiaFont", !settings.dyslexiaFont), "Toggle dyslexia font")}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Ruler size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Reading Guide</span>
+                </div>
+                {renderToggle(settings.readingGuide, () => updateSetting("readingGuide", !settings.readingGuide), "Toggle reading guide")}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <ImageOff size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Hide Images</span>
+                </div>
+                {renderToggle(settings.hideImages, () => updateSetting("hideImages", !settings.hideImages), "Toggle hide images")}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Focus size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Focus Highlight</span>
+                </div>
+                {renderToggle(settings.focusHighlight, () => updateSetting("focusHighlight", !settings.focusHighlight), "Toggle focus highlight")}
+              </div>
+
+              {/* Color Vision */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <Eye size={16} color="#6b7280" />
+                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Color Vision</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  {(["normal", "protanopia", "deuteranopia", "tritanopia"] as ColorBlindMode[]).map((mode) => (
+                    <button key={mode} onClick={() => updateSetting("colorBlindMode", mode)} style={styles.optionButton(settings.colorBlindMode === mode)}>
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reset */}
+              <button onClick={resetSettings} disabled={!hasCustomSettings} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: hasCustomSettings ? "pointer" : "not-allowed", opacity: hasCustomSettings ? 1 : 0.5, fontSize: "14px" }}>
+                <RotateCcw size={16} />
+                Reset to Defaults
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Audit Tab */}
+        {activeTab === "audit" && (
+          <div style={styles.content}>
+            {!auditResult ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center" }}>
+                <ClipboardCheck size={48} color="#d1d5db" style={{ marginBottom: "16px" }} />
+                <h3 style={{ fontWeight: 500, marginBottom: "8px" }}>Accessibility Audit</h3>
+                <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "16px" }}>
+                  Scan this page for WCAG accessibility issues
+                </p>
+                <button onClick={runAudit} disabled={isScanning} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 20px", background: primaryColor, color: "white", border: "none", borderRadius: "8px", fontSize: "14px", cursor: "pointer", opacity: isScanning ? 0.7 : 1 }}>
+                  {isScanning ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <ClipboardCheck size={16} />}
+                  {isScanning ? "Scanning..." : "Run Audit"}
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Score Card */}
+                <div style={{ padding: "16px", borderRadius: "8px", background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Accessibility Score</span>
+                    <span style={{ fontSize: "24px", fontWeight: 700, color: auditResult.score >= 80 ? "#22c55e" : auditResult.score >= 50 ? "#f59e0b" : "#ef4444" }}>
+                      {auditResult.score}%
+                    </span>
+                  </div>
+                  <div style={styles.scoreBar(auditResult.score)}>
+                    <div style={styles.scoreBarFill(auditResult.score)} />
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>
+                    {auditResult.passedChecks}/{auditResult.totalChecks} checks passed
+                  </p>
+                </div>
+
+                {/* Issues List */}
+                {auditResult.issues.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <h4 style={{ fontSize: "14px", fontWeight: 500, display: "flex", alignItems: "center", gap: "8px" }}>
+                      <AlertCircle size={16} color="#ef4444" />
+                      Issues Found ({auditResult.issues.length})
+                    </h4>
+                    {auditResult.issues.map((issue) => (
+                      <div key={issue.id} style={styles.issueCard(issue.type)}>
+                        <button onClick={() => setExpandedIssue(expandedIssue === issue.id ? null : issue.id)} style={{ width: "100%", padding: "12px", display: "flex", alignItems: "flex-start", gap: "8px", textAlign: "left", background: "transparent", border: "none", cursor: "pointer" }}>
+                          {issue.type === "error" ? <AlertCircle size={16} color="#ef4444" /> : issue.type === "warning" ? <AlertTriangle size={16} color="#f59e0b" /> : <Info size={16} color="#6366f1" />}
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "13px", fontWeight: 500 }}>{issue.title}</span>
+                              <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "#e5e7eb", color: "#6b7280" }}>{issue.wcagCriteria}</span>
+                            </div>
+                          </div>
+                          {expandedIssue === issue.id ? <ChevronUp size={16} color="#6b7280" /> : <ChevronDown size={16} color="#6b7280" />}
+                        </button>
+                        {expandedIssue === issue.id && (
+                          <div style={{ padding: "0 12px 12px 36px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
+                            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "8px" }}>{issue.description}</p>
+                            <p style={{ fontSize: "12px", marginTop: "8px" }}>
+                              <strong>How to fix:</strong> <span style={{ color: "#6b7280" }}>{issue.howToFix}</span>
+                            </p>
+                            {issue.element && (
+                              <code style={{ display: "block", fontSize: "11px", padding: "4px 8px", marginTop: "8px", background: "#e5e7eb", borderRadius: "4px", fontFamily: "monospace", color: "#374151" }}>
+                                {issue.element}
+                              </code>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px", textAlign: "center" }}>
+                    <CheckCircle2 size={40} color="#22c55e" style={{ marginBottom: "8px" }} />
+                    <p style={{ fontWeight: 500, fontSize: "14px" }}>No issues found!</p>
+                    <p style={{ fontSize: "12px", color: "#6b7280" }}>This page passes basic accessibility checks.</p>
+                  </div>
+                )}
+
+                {/* Export */}
+                <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                    <Download size={16} color="#6b7280" />
+                    <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Export Report</span>
+                  </div>
+                  <button onClick={exportAuditJSON} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: "pointer", fontSize: "14px" }}>
+                    <Download size={16} />
+                    Export as JSON
+                  </button>
+                  <button onClick={() => { setAuditResult(null); setExpandedIssue(null); }} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "10px", marginTop: "8px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: "pointer", fontSize: "14px" }}>
+                    <RotateCcw size={16} />
+                    Run New Scan
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        style={styles.button(primaryColor)}
-        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}
-      >
+      <button onClick={() => setIsOpen(!isOpen)} style={styles.button()} aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}>
         {isOpen ? <X size={24} color="white" /> : <MessageCircle size={24} color="white" />}
       </button>
 
@@ -484,6 +1180,37 @@ export function EmbeddableWidget({
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: ${primaryColor};
+          cursor: pointer;
+          border: 2px solid white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: ${primaryColor};
+          cursor: pointer;
+          border: 2px solid white;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        /* Accessibility CSS classes applied to host page */
+        .a11y-text-scaled * { font-size: calc(1em * var(--a11y-text-scale, 1)) !important; }
+        .a11y-line-height-scaled * { line-height: calc(1.5 * var(--a11y-line-height, 1)) !important; }
+        .a11y-letter-spacing-scaled * { letter-spacing: var(--a11y-letter-spacing, 0) !important; }
+        .a11y-high-contrast { filter: contrast(1.5) !important; }
+        .a11y-inverted { filter: invert(1) hue-rotate(180deg) !important; }
+        .a11y-dyslexia-font * { font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important; }
+        .a11y-hide-images img { opacity: 0 !important; }
+        .a11y-focus-highlight *:focus { outline: 3px solid ${primaryColor} !important; outline-offset: 2px !important; }
+        .a11y-protanopia { filter: url(#protanopia-filter) !important; }
+        .a11y-deuteranopia { filter: url(#deuteranopia-filter) !important; }
+        .a11y-tritanopia { filter: url(#tritanopia-filter) !important; }
       `}</style>
     </div>
   );
