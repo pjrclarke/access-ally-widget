@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -134,6 +135,23 @@ interface Message {
 type TabType = "chat" | "visual" | "audit";
 type ChatMode = "voice" | "text";
 
+// Extract clean domain name, handling Lovable preview URLs
+function getCleanDomain(): string {
+  const hostname = window.location.hostname.replace('www.', '');
+  
+  // Handle Lovable preview URLs (e.g., b73f0b04-da1d-48f7-8d31-25013907c911.lovableproject.com)
+  if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
+    return 'this website';
+  }
+  
+  // Handle localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'this website';
+  }
+  
+  return hostname;
+}
+
 export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
@@ -148,9 +166,31 @@ export function AccessibilityWidget() {
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [widgetApiKey, setWidgetApiKey] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Fetch widget API key on mount
+  useEffect(() => {
+    const fetchApiKey = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("widget_api_keys")
+          .select("api_key")
+          .eq("is_active", true)
+          .limit(1)
+          .single();
+        
+        if (data && !error) {
+          setWidgetApiKey(data.api_key);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch widget API key:", e);
+      }
+    };
+    fetchApiKey();
+  }, []);
   
   // Accessibility audit hook
   const { isScanning, result: auditResult, runAudit, clearResult: clearAuditResult } = useAccessibilityAudit();
@@ -245,7 +285,7 @@ export function AccessibilityWidget() {
 
   // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
-    const domain = window.location.hostname.replace('www.', '');
+    const domain = getCleanDomain();
     return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything about this site, like "what does this site look like?", "where can I get in contact?", or "can you enter text in fields for me?". To switch to text chat, just say "switch to text". How can I help?`;
   }, []);
 
@@ -422,14 +462,21 @@ export function AccessibilityWidget() {
     const pageContext = getPageContext();
     
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      };
+      
+      // Add widget API key if available
+      if (widgetApiKey) {
+        headers["x-api-key"] = widgetApiKey;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/widget-chat`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
+          headers,
           body: JSON.stringify({
             message: messageText,
             pageContent: pageContext.content,
@@ -526,7 +573,7 @@ export function AccessibilityWidget() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, getPageContext, executeAction, isSpeechEnabled, speak, toast]);
+  }, [isLoading, getPageContext, executeAction, isSpeechEnabled, speak, toast, widgetApiKey]);
 
   // Keep sendMessageRef updated
   useEffect(() => {
