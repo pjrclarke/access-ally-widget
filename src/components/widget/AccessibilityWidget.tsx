@@ -135,18 +135,21 @@ interface Message {
 type TabType = "chat" | "visual" | "audit";
 type ChatMode = "voice" | "text";
 
-// Extract clean domain name, handling Lovable preview URLs
+// Extract clean domain name (e.g., lovable.dev, google.com)
 function getCleanDomain(): string {
   const hostname = window.location.hostname.replace('www.', '');
   
-  // Handle Lovable preview URLs (e.g., b73f0b04-da1d-48f7-8d31-25013907c911.lovableproject.com)
-  if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
-    return 'this website';
+  // Handle Lovable preview URLs - extract a readable form
+  if (hostname.includes('lovableproject.com')) {
+    return 'lovableproject.com';
+  }
+  if (hostname.includes('lovable.app')) {
+    return hostname; // Keep as-is for published lovable.app domains
   }
   
   // Handle localhost
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'this website';
+    return 'localhost';
   }
   
   return hostname;
@@ -286,7 +289,7 @@ export function AccessibilityWidget() {
   // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
     const domain = getCleanDomain();
-    return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything about this site, like "what does this site look like?", "where can I get in contact?", or "can you enter text in fields for me?". To switch to text chat, just say "switch to text". How can I help?`;
+    return `Hi! I'm your accessibility assistant for ${domain}. To switch to text chat, just say "switch to text". How can I help you today?`;
   }, []);
 
   // Auto-start voice mode when widget opens with announcement
@@ -461,6 +464,26 @@ export function AccessibilityWidget() {
 
     const pageContext = getPageContext();
     
+    // Set up delayed "please wait" message
+    let hasReceivedResponse = false;
+    const waitMessageTimeout = setTimeout(() => {
+      if (!hasReceivedResponse) {
+        const waitMessage = "Please give me a second while I find that for you...";
+        if (isSpeechEnabled) {
+          speak(waitMessage);
+        }
+      }
+    }, 3000); // 3 seconds before showing wait message
+
+    const longWaitTimeout = setTimeout(() => {
+      if (!hasReceivedResponse) {
+        const apologyMessage = "Sorry this is taking longer than usual. I'm still working on it...";
+        if (isSpeechEnabled) {
+          speak(apologyMessage);
+        }
+      }
+    }, 8000); // 8 seconds for apology
+    
     try {
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -485,6 +508,11 @@ export function AccessibilityWidget() {
           }),
         }
       );
+
+      // Clear timeouts once we get a response
+      hasReceivedResponse = true;
+      clearTimeout(waitMessageTimeout);
+      clearTimeout(longWaitTimeout);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -559,6 +587,11 @@ export function AccessibilityWidget() {
         }
       }
     } catch (error) {
+      // Clear timeouts on error
+      hasReceivedResponse = true;
+      clearTimeout(waitMessageTimeout);
+      clearTimeout(longWaitTimeout);
+      
       console.error("Chat error:", error);
       const errorMessage = error instanceof Error ? error.message : "Something went wrong";
       setMessages(prev => [...prev, { 
