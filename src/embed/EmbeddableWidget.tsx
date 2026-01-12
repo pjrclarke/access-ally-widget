@@ -396,6 +396,7 @@ export function EmbeddableWidget({
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wasSpeakingRef = useRef(false);
@@ -426,19 +427,43 @@ export function EmbeddableWidget({
     autoSendDelay: 1500,
   });
 
-  // Auto-start voice mode when widget opens
+  // Generate welcome announcement
+  const getWelcomeAnnouncement = useCallback(() => {
+    const domain = window.location.hostname.replace('www.', '');
+    const pageTitle = document.title || 'this page';
+    
+    const mainContent = document.querySelector("main")?.textContent || 
+                        document.querySelector("h1")?.textContent ||
+                        document.body.textContent || "";
+    const briefSummary = mainContent.slice(0, 200).trim().replace(/\s+/g, ' ');
+    
+    return `Hello! I'm your accessibility assistant for ${domain}. I can help you navigate through the website, find important areas, and answer questions about the content. You're currently on ${pageTitle}. ${briefSummary ? `This page appears to be about: ${briefSummary.slice(0, 100)}...` : ''} To switch to text chat instead of voice, say "switch to text" or click the Switch to Text button at the top of the chat. Now, how can I help you today?`;
+  }, []);
+
+  // Auto-start voice mode when widget opens with announcement
   useEffect(() => {
-    if (isOpen && activeTab === "chat" && chatMode === "voice" && isSpeechRecognitionSupported && !isLoading) {
+    if (isOpen && activeTab === "chat" && chatMode === "voice" && isSpeechRecognitionSupported && !isLoading && !hasShownWelcome && messages.length === 0) {
+      setHasShownWelcome(true);
+      
       const timer = setTimeout(() => {
-        if (!isListening) {
-          unlockAudio();
+        unlockAudio();
+        const welcomeMessage = getWelcomeAnnouncement();
+        
+        // Add welcome as first assistant message
+        setMessages([{ role: "assistant", content: welcomeMessage }]);
+        
+        // Speak the welcome, then start listening after it finishes
+        if (isSpeechEnabled) {
+          speak(welcomeMessage);
+          setConversationMode(true);
+        } else {
           setConversationMode(true);
           startListening();
         }
-      }, 300);
+      }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, activeTab, chatMode, isSpeechRecognitionSupported, isLoading, isListening, unlockAudio, startListening]);
+  }, [isOpen, activeTab, chatMode, isSpeechRecognitionSupported, isLoading, hasShownWelcome, messages.length, unlockAudio, getWelcomeAnnouncement, isSpeechEnabled, speak, startListening]);
 
   // Stop listening when switching to text mode
   useEffect(() => {
@@ -1133,14 +1158,24 @@ export function EmbeddableWidget({
                   Switch to {chatMode === "voice" ? "Text" : "Voice"}
                 </button>
               </div>
-              {chatMode === "voice" && isSpeechRecognitionSupported && (
+              {chatMode === "voice" && isSpeechRecognitionSupported && isSpeaking && (
+                <p style={{ fontSize: "12px", color: primaryColor, marginTop: "6px" }}>
+                  🔊 Speaking... I'll start listening when I'm done.
+                </p>
+              )}
+              {chatMode === "voice" && isSpeechRecognitionSupported && !isSpeaking && isListening && (
+                <p style={{ fontSize: "12px", color: primaryColor, marginTop: "6px" }}>
+                  🎤 Listening... Speak now or click "Switch to Text" to type instead.
+                </p>
+              )}
+              {chatMode === "voice" && isSpeechRecognitionSupported && !isSpeaking && !isListening && (
                 <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "6px" }}>
-                  🎤 I'm listening... Just start speaking. To switch to text chat, click "Switch to Text" above.
+                  Click the microphone below to start speaking, or "Switch to Text" to type.
                 </p>
               )}
               {chatMode === "voice" && !isSpeechRecognitionSupported && (
                 <p style={{ fontSize: "12px", color: "#f59e0b", marginTop: "6px" }}>
-                  Voice not supported in this browser. Using text mode.
+                  Voice not supported in this browser. Please use text mode.
                 </p>
               )}
             </div>
@@ -1150,12 +1185,9 @@ export function EmbeddableWidget({
                 <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#374151", padding: "20px" }}>
                   {chatMode === "voice" && isSpeechRecognitionSupported ? (
                     <>
-                      <Mic size={48} color={primaryColor} style={{ marginBottom: "16px", animation: isListening ? "pulse 2s infinite" : "none" }} aria-hidden="true" />
-                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>I'm listening...</p>
-                      <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Just start speaking to ask me anything</p>
-                      <p style={{ fontSize: "11px", color: "#9ca3af", maxWidth: "260px" }}>
-                        Or click "Switch to Text" above to type your questions instead
-                      </p>
+                      <Volume2 size={48} color={primaryColor} style={{ marginBottom: "16px" }} aria-hidden="true" />
+                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>Preparing your assistant...</p>
+                      <p style={{ fontSize: "13px", color: "#4b5563" }}>Please wait while I introduce myself</p>
                     </>
                   ) : (
                     <>
