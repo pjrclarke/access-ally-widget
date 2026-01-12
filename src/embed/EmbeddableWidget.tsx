@@ -119,6 +119,23 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
+// Extract clean domain name, handling Lovable preview URLs
+function getCleanDomain(): string {
+  const hostname = window.location.hostname.replace('www.', '');
+  
+  // Handle Lovable preview URLs (e.g., b73f0b04-da1d-48f7-8d31-25013907c911.lovableproject.com)
+  if (hostname.includes('lovableproject.com') || hostname.includes('lovable.app')) {
+    return 'this website';
+  }
+  
+  // Handle localhost
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'this website';
+  }
+  
+  return hostname;
+}
+
 const STORAGE_KEY = "a11y-embed-settings";
 
 function loadSettings(): AccessibilitySettings {
@@ -429,7 +446,7 @@ export function EmbeddableWidget({
 
   // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
-    const domain = window.location.hostname.replace('www.', '');
+    const domain = getCleanDomain();
     return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything about this site, like "what does this site look like?", "where can I get in contact?", or "can you enter text in fields for me?". To switch to text chat, just say "switch to text". How can I help?`;
   }, []);
 
