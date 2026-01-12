@@ -220,14 +220,16 @@ export function AccessibilityWidget() {
   // Auto-start listening when AI finishes speaking in conversation mode
   useEffect(() => {
     // Detect transition from speaking to not speaking
-    if (wasSpeakingRef.current && !isSpeaking && conversationMode && isSpeechEnabled && !isLoading) {
+    if (wasSpeakingRef.current && !isSpeaking && conversationMode && isSpeechEnabled && !isLoading && !isListening && chatMode === "voice") {
       // Small delay to ensure clean transition
       setTimeout(() => {
-        startListening();
+        if (!isListening) {
+          startListening();
+        }
       }, 400);
     }
     wasSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, conversationMode, isSpeechEnabled, isLoading, startListening]);
+  }, [isSpeaking, conversationMode, isSpeechEnabled, isLoading, isListening, chatMode, startListening]);
 
   // Update input when transcript changes
   useEffect(() => {
@@ -241,28 +243,52 @@ export function AccessibilityWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-start voice mode when widget opens and show announcement
+  // Generate welcome announcement
+  const getWelcomeAnnouncement = useCallback(() => {
+    const domain = window.location.hostname.replace('www.', '');
+    const pageTitle = document.title || 'this page';
+    
+    // Get a brief summary of the page
+    const mainContent = document.querySelector("main")?.textContent || 
+                        document.querySelector("h1")?.textContent ||
+                        document.body.textContent || "";
+    const briefSummary = mainContent.slice(0, 200).trim().replace(/\s+/g, ' ');
+    
+    return `Hello! I'm your accessibility assistant for ${domain}. I can help you navigate through the website, find important areas, and answer questions about the content. You're currently on ${pageTitle}. ${briefSummary ? `This page appears to be about: ${briefSummary.slice(0, 100)}...` : ''} To switch to text chat instead of voice, say "switch to text" or click the Switch to Text button at the top of the chat. Now, how can I help you today?`;
+  }, []);
+
+  // Auto-start voice mode when widget opens with announcement
   useEffect(() => {
-    if (isOpen && activeTab === "chat" && chatMode === "voice" && isVoiceSupported && !isLoading) {
-      // Small delay to ensure widget is fully rendered
+    if (isOpen && activeTab === "chat" && chatMode === "voice" && isVoiceSupported && !isLoading && !hasShownModeAnnouncement && messages.length === 0) {
+      setHasShownModeAnnouncement(true);
+      
+      // Speak the welcome announcement first
       const timer = setTimeout(() => {
-        if (!isListening) {
-          unlockAudio();
+        unlockAudio();
+        const welcomeMessage = getWelcomeAnnouncement();
+        
+        // Add welcome as first assistant message
+        setMessages([{ role: "assistant", content: welcomeMessage }]);
+        
+        // Speak the welcome, then start listening after it finishes
+        if (isSpeechEnabled) {
+          speak(welcomeMessage);
+          // Conversation mode will auto-start listening after speech ends
+          setConversationMode(true);
+        } else {
+          // If speech is disabled, just start listening
           setConversationMode(true);
           startListening();
         }
-        // Show the mode announcement only once per session
-        if (!hasShownModeAnnouncement && messages.length === 0) {
-          setHasShownModeAnnouncement(true);
-        }
-      }, 300);
+      }, 500);
       return () => clearTimeout(timer);
     }
+    
     // Focus input when in text mode
     if (isOpen && chatMode === "text") {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, activeTab, chatMode, isVoiceSupported, isLoading, isListening, unlockAudio, startListening, hasShownModeAnnouncement, messages.length]);
+  }, [isOpen, activeTab, chatMode, isVoiceSupported, isLoading, hasShownModeAnnouncement, messages.length, unlockAudio, getWelcomeAnnouncement, isSpeechEnabled, speak, startListening]);
 
   // Stop listening when switching to text mode
   useEffect(() => {
@@ -909,14 +935,24 @@ export function AccessibilityWidget() {
                   Switch to {chatMode === "voice" ? "Text" : "Voice"}
                 </button>
               </div>
-              {chatMode === "voice" && isVoiceSupported && (
+              {chatMode === "voice" && isVoiceSupported && isSpeaking && (
+                <p className="text-xs text-primary mt-1.5 animate-pulse">
+                  🔊 Speaking... I'll start listening when I'm done.
+                </p>
+              )}
+              {chatMode === "voice" && isVoiceSupported && !isSpeaking && isListening && (
+                <p className="text-xs text-primary mt-1.5 animate-pulse">
+                  🎤 Listening... Speak now or click "Switch to Text" to type instead.
+                </p>
+              )}
+              {chatMode === "voice" && isVoiceSupported && !isSpeaking && !isListening && (
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  🎤 I'm listening... Just start speaking. To switch to text chat, click "Switch to Text" above.
+                  Click the microphone below to start speaking, or "Switch to Text" to type.
                 </p>
               )}
               {chatMode === "voice" && !isVoiceSupported && (
                 <p className="text-xs text-warning mt-1.5">
-                  Voice not supported in this browser. Using text mode.
+                  Voice not supported in this browser. Please use text mode.
                 </p>
               )}
             </div>
@@ -932,12 +968,9 @@ export function AccessibilityWidget() {
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
                   {chatMode === "voice" && isVoiceSupported ? (
                     <>
-                      <Mic className="h-12 w-12 mb-4 text-primary animate-pulse" />
-                      <p className="font-medium">I'm listening...</p>
-                      <p className="text-sm mt-1">Just start speaking to ask me anything</p>
-                      <p className="text-xs mt-3 text-muted-foreground/70 max-w-[260px]">
-                        Or click "Switch to Text" above to type your questions instead
-                      </p>
+                      <Volume2 className="h-12 w-12 mb-4 text-primary animate-pulse" />
+                      <p className="font-medium">Preparing your assistant...</p>
+                      <p className="text-sm mt-1">Please wait while I introduce myself</p>
                     </>
                   ) : (
                     <>
