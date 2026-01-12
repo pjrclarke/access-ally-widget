@@ -132,10 +132,13 @@ interface Message {
 }
 
 type TabType = "chat" | "visual" | "audit";
+type ChatMode = "voice" | "text";
 
 export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
+  const [chatMode, setChatMode] = useState<ChatMode>("voice");
+  const [hasShownModeAnnouncement, setHasShownModeAnnouncement] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -238,12 +241,36 @@ export function AccessibilityWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when panel opens
+  // Auto-start voice mode when widget opens and show announcement
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && activeTab === "chat" && chatMode === "voice" && isVoiceSupported && !isLoading) {
+      // Small delay to ensure widget is fully rendered
+      const timer = setTimeout(() => {
+        if (!isListening) {
+          unlockAudio();
+          setConversationMode(true);
+          startListening();
+        }
+        // Show the mode announcement only once per session
+        if (!hasShownModeAnnouncement && messages.length === 0) {
+          setHasShownModeAnnouncement(true);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    // Focus input when in text mode
+    if (isOpen && chatMode === "text") {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, activeTab, chatMode, isVoiceSupported, isLoading, isListening, unlockAudio, startListening, hasShownModeAnnouncement, messages.length]);
+
+  // Stop listening when switching to text mode
+  useEffect(() => {
+    if (chatMode === "text" && isListening) {
+      stopListening();
+      setConversationMode(false);
+    }
+  }, [chatMode, isListening, stopListening]);
 
   // Get page content and interactive elements for context
   const getPageContext = useCallback(() => {
@@ -862,38 +889,83 @@ export function AccessibilityWidget() {
         {/* Chat Tab Content */}
         {activeTab === "chat" && (
           <>
+            {/* Voice/Text Mode Toggle */}
+            <div className="px-4 pt-3 pb-2 border-b border-border bg-secondary/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {chatMode === "voice" ? (
+                    <Mic className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Type className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {chatMode === "voice" ? "Voice Chat" : "Text Chat"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setChatMode(chatMode === "voice" ? "text" : "voice")}
+                  className="text-xs px-2 py-1 rounded-md bg-secondary hover:bg-secondary/80 transition-colors text-muted-foreground hover:text-foreground"
+                >
+                  Switch to {chatMode === "voice" ? "Text" : "Voice"}
+                </button>
+              </div>
+              {chatMode === "voice" && isVoiceSupported && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  🎤 I'm listening... Just start speaking. To switch to text chat, click "Switch to Text" above.
+                </p>
+              )}
+              {chatMode === "voice" && !isVoiceSupported && (
+                <p className="text-xs text-warning mt-1.5">
+                  Voice not supported in this browser. Using text mode.
+                </p>
+              )}
+            </div>
+
             {/* Messages */}
             <div 
-              className="h-[280px] overflow-y-auto p-4 space-y-4"
+              className="h-[240px] overflow-y-auto p-4 space-y-4"
               role="log"
               aria-live="polite"
               aria-label="Chat messages"
             >
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
-                  <Accessibility className="h-12 w-12 mb-4 opacity-30" />
-                  <p className="font-medium">How can I help you today?</p>
-                  <p className="text-sm mt-1">Ask about this page or use voice commands</p>
-                  <div className="mt-4 grid gap-2 w-full max-w-[280px]">
-                    <button
-                      onClick={() => sendMessage("Summarize this page for me")}
-                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                    >
-                      📄 Summarize this page
-                    </button>
-                    <button
-                      onClick={() => sendMessage("What is this website about?")}
-                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                    >
-                      ❓ What is this website about?
-                    </button>
-                    <button
-                      onClick={() => sendMessage("Help me navigate to the pricing section")}
-                      className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
-                    >
-                      🧭 Navigate to pricing
-                    </button>
-                  </div>
+                  {chatMode === "voice" && isVoiceSupported ? (
+                    <>
+                      <Mic className="h-12 w-12 mb-4 text-primary animate-pulse" />
+                      <p className="font-medium">I'm listening...</p>
+                      <p className="text-sm mt-1">Just start speaking to ask me anything</p>
+                      <p className="text-xs mt-3 text-muted-foreground/70 max-w-[260px]">
+                        Or click "Switch to Text" above to type your questions instead
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Accessibility className="h-12 w-12 mb-4 opacity-30" />
+                      <p className="font-medium">How can I help you today?</p>
+                      <p className="text-sm mt-1">Type your question below</p>
+                      <div className="mt-4 grid gap-2 w-full max-w-[280px]">
+                        <button
+                          onClick={() => sendMessage("Summarize this page for me")}
+                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                        >
+                          📄 Summarize this page
+                        </button>
+                        <button
+                          onClick={() => sendMessage("What is this website about?")}
+                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                        >
+                          ❓ What is this website about?
+                        </button>
+                        <button
+                          onClick={() => sendMessage("Help me navigate to the pricing section")}
+                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                        >
+                          🧭 Navigate to pricing
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 messages.map((message, index) => (
@@ -1454,59 +1526,92 @@ export function AccessibilityWidget() {
         {/* Input - only show on chat tab */}
         {activeTab === "chat" && (
           <form onSubmit={handleSubmit} className="p-4 border-t border-border">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={isListening ? "Listening..." : "Type or speak your question..."}
-                  className={cn(
-                    "pr-10 transition-all",
-                    isListening && "border-primary ring-2 ring-primary/20"
-                  )}
-                  disabled={isLoading}
-                  aria-label="Your message"
-                />
-                {isVoiceSupported && (
+            {chatMode === "voice" && isVoiceSupported ? (
+              // Voice mode: Show listening status with stop button
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleVoiceToggle}
+                    onClick={() => {
+                      if (isListening) {
+                        stopListening();
+                        setConversationMode(false);
+                      } else {
+                        unlockAudio();
+                        setConversationMode(true);
+                        startListening();
+                      }
+                    }}
                     className={cn(
-                      "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-colors",
+                      "h-12 w-12 rounded-full flex items-center justify-center transition-all",
                       isListening 
-                        ? "text-primary bg-primary/10 animate-pulse" 
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        ? "bg-destructive text-destructive-foreground animate-pulse" 
+                        : "bg-primary text-primary-foreground"
                     )}
-                    aria-label={isListening ? "Stop listening" : "Start voice input"}
+                    aria-label={isListening ? "Stop listening" : "Start listening"}
                     disabled={isLoading}
                   >
                     {isListening ? (
-                      <MicOff className="h-4 w-4" />
+                      <MicOff className="h-5 w-5" />
                     ) : (
-                      <Mic className="h-4 w-4" />
+                      <Mic className="h-5 w-5" />
                     )}
                   </button>
+                  {inputValue && (
+                    <Button
+                      type="submit"
+                      size="icon"
+                      disabled={!inputValue.trim() || isLoading}
+                      className="bg-gradient-primary hover:opacity-90 transition-opacity"
+                      aria-label="Send message"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+                {isListening && (
+                  <p className="text-xs text-primary animate-pulse text-center">
+                    {inputValue ? `"${inputValue}"` : "Listening..."}
+                  </p>
+                )}
+                {!isListening && !isLoading && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Click the microphone to start speaking
+                  </p>
                 )}
               </div>
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!inputValue.trim() || isLoading}
-                className="bg-gradient-primary hover:opacity-90 transition-opacity shrink-0"
-                aria-label="Send message"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-            {isListening && (
-              <p className="text-xs text-primary mt-2 animate-pulse text-center">
-                🎤 Speak now... Click mic or press Enter when done
-              </p>
+            ) : (
+              // Text mode: Show standard input
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Type your question..."
+                    className="transition-all"
+                    disabled={isLoading}
+                    aria-label="Your message"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!inputValue.trim() || isLoading}
+                  className="bg-gradient-primary hover:opacity-90 transition-opacity shrink-0"
+                  aria-label="Send message"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             )}
           </form>
         )}
