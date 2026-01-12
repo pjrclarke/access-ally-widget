@@ -25,6 +25,7 @@ export type Database = {
           name: string
           request_count: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           api_key: string
@@ -36,6 +37,7 @@ export type Database = {
           name: string
           request_count?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           api_key?: string
@@ -47,6 +49,7 @@ export type Database = {
           name?: string
           request_count?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
