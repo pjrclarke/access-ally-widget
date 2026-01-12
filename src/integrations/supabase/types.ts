@@ -14,9 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          monthly_request_limit: number
+          name: string
+          notes: string | null
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          plan_status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          monthly_request_limit?: number
+          name: string
+          notes?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan_status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          monthly_request_limit?: number
+          name?: string
+          notes?: string | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan_status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          amount_cents: number
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          status: string
+          stripe_invoice_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          company_id: string
+          created_at?: string
+          description: string
+          id?: string
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          stripe_invoice_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          stripe_invoice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_logs: {
+        Row: {
+          api_key_id: string
+          company_id: string
+          created_at: string
+          endpoint: string
+          id: string
+          response_status: number | null
+          response_time_ms: number | null
+        }
+        Insert: {
+          api_key_id: string
+          company_id: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          response_status?: number | null
+          response_time_ms?: number | null
+        }
+        Update: {
+          api_key_id?: string
+          company_id?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          response_status?: number | null
+          response_time_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "widget_api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       widget_api_keys: {
         Row: {
           api_key: string
+          company_id: string | null
           created_at: string
           domain: string | null
           id: string
@@ -29,6 +182,7 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          company_id?: string | null
           created_at?: string
           domain?: string | null
           id?: string
@@ -41,6 +195,7 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          company_id?: string | null
           created_at?: string
           domain?: string | null
           id?: string
@@ -51,7 +206,15 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "widget_api_keys_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -59,6 +222,7 @@ export type Database = {
     }
     Functions: {
       generate_widget_api_key: { Args: never; Returns: string }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       validate_widget_api_key: {
         Args: { key_to_validate: string }
         Returns: {
@@ -69,7 +233,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      subscription_plan: "free" | "starter" | "pro" | "enterprise"
+      subscription_status: "active" | "cancelled" | "past_due" | "trialing"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -196,6 +361,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      subscription_plan: ["free", "starter", "pro", "enterprise"],
+      subscription_status: ["active", "cancelled", "past_due", "trialing"],
+    },
   },
 } as const
