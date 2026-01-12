@@ -429,8 +429,8 @@ export function EmbeddableWidget({
 
   // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
-    const domain = window.location.hostname.replace('www.', '').split('.')[0];
-    return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything, or say "switch to text" to type instead. How can I help?`;
+    const domain = window.location.hostname.replace('www.', '');
+    return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything about this site, like "what does this site look like?", "where can I get in contact?", or "can you enter text in fields for me?". To switch to text chat, just say "switch to text". How can I help?`;
   }, []);
 
   // Auto-start voice mode when widget opens with announcement
