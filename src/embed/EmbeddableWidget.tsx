@@ -47,6 +47,7 @@ interface EmbeddableWidgetProps {
 }
 
 type TabType = "chat" | "visual" | "audit" | "settings";
+type ChatMode = "voice" | "text";
 type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
 type ContrastMode = "normal" | "high" | "inverted";
 
@@ -384,6 +385,7 @@ export function EmbeddableWidget({
   
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
+  const [chatMode, setChatMode] = useState<ChatMode>("voice");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -424,18 +426,40 @@ export function EmbeddableWidget({
     autoSendDelay: 1500,
   });
 
+  // Auto-start voice mode when widget opens
+  useEffect(() => {
+    if (isOpen && activeTab === "chat" && chatMode === "voice" && isSpeechRecognitionSupported && !isLoading) {
+      const timer = setTimeout(() => {
+        if (!isListening) {
+          unlockAudio();
+          setConversationMode(true);
+          startListening();
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, activeTab, chatMode, isSpeechRecognitionSupported, isLoading, isListening, unlockAudio, startListening]);
+
+  // Stop listening when switching to text mode
+  useEffect(() => {
+    if (chatMode === "text" && isListening) {
+      stopListening();
+      setConversationMode(false);
+    }
+  }, [chatMode, isListening, stopListening]);
+
   // Auto-restart listening after AI finishes speaking
   useEffect(() => {
-    if (wasSpeakingRef.current && !isSpeaking && conversationMode && !isListening) {
+    if (wasSpeakingRef.current && !isSpeaking && conversationMode && chatMode === "voice" && !isListening) {
       const timer = setTimeout(() => {
-        if (conversationMode && !isListening) {
+        if (conversationMode && chatMode === "voice" && !isListening) {
           startListening();
         }
       }, 500);
       return () => clearTimeout(timer);
     }
     wasSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, conversationMode, isListening, startListening]);
+  }, [isSpeaking, conversationMode, chatMode, isListening, startListening]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -1089,35 +1113,80 @@ export function EmbeddableWidget({
         {/* Chat Tab */}
         {activeTab === "chat" && (
           <>
-            <div style={styles.messages} role="log" aria-live="polite" aria-label="Chat messages">
+            {/* Voice/Text Mode Toggle */}
+            <div style={{ padding: "12px 16px 8px 16px", borderBottom: "1px solid #e5e7eb", background: "#f9fafb" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {chatMode === "voice" ? (
+                    <Mic size={16} color={primaryColor} aria-hidden="true" />
+                  ) : (
+                    <Type size={16} color="#6b7280" aria-hidden="true" />
+                  )}
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "#374151" }}>
+                    {chatMode === "voice" ? "Voice Chat" : "Text Chat"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setChatMode(chatMode === "voice" ? "text" : "voice")}
+                  style={{ fontSize: "12px", padding: "4px 8px", borderRadius: "6px", background: "#e5e7eb", border: "none", cursor: "pointer", color: "#6b7280" }}
+                >
+                  Switch to {chatMode === "voice" ? "Text" : "Voice"}
+                </button>
+              </div>
+              {chatMode === "voice" && isSpeechRecognitionSupported && (
+                <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "6px" }}>
+                  🎤 I'm listening... Just start speaking. To switch to text chat, click "Switch to Text" above.
+                </p>
+              )}
+              {chatMode === "voice" && !isSpeechRecognitionSupported && (
+                <p style={{ fontSize: "12px", color: "#f59e0b", marginTop: "6px" }}>
+                  Voice not supported in this browser. Using text mode.
+                </p>
+              )}
+            </div>
+
+            <div style={{ ...styles.messages, height: "220px" }} role="log" aria-live="polite" aria-label="Chat messages">
               {messages.length === 0 ? (
                 <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#374151", padding: "20px" }}>
-                  <Accessibility size={48} color="#d1d5db" style={{ marginBottom: "16px" }} aria-hidden="true" />
-                  <p style={{ marginBottom: "8px", fontWeight: 500 }}>How can I help you today?</p>
-                  <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Ask about this page or use voice commands</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "280px" }}>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Summarize this page for me")}
-                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
-                    >
-                      Summarize this page
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("What is this website about?")}
-                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
-                    >
-                      What is this website about?
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Help me navigate to the main content")}
-                      style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
-                    >
-                      Navigate to main content
-                    </button>
-                  </div>
+                  {chatMode === "voice" && isSpeechRecognitionSupported ? (
+                    <>
+                      <Mic size={48} color={primaryColor} style={{ marginBottom: "16px", animation: isListening ? "pulse 2s infinite" : "none" }} aria-hidden="true" />
+                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>I'm listening...</p>
+                      <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Just start speaking to ask me anything</p>
+                      <p style={{ fontSize: "11px", color: "#9ca3af", maxWidth: "260px" }}>
+                        Or click "Switch to Text" above to type your questions instead
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Accessibility size={48} color="#d1d5db" style={{ marginBottom: "16px" }} aria-hidden="true" />
+                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>How can I help you today?</p>
+                      <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Type your question below</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "280px" }}>
+                        <button
+                          type="button"
+                          onClick={() => sendQuickMessage("Summarize this page for me")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                        >
+                          Summarize this page
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sendQuickMessage("What is this website about?")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                        >
+                          What is this website about?
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sendQuickMessage("Help me navigate to the main content")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                        >
+                          Navigate to main content
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 messages.map((msg, i) => (
@@ -1135,23 +1204,74 @@ export function EmbeddableWidget({
             </div>
 
             <form id="widget-form" onSubmit={sendMessage} style={styles.inputContainer}>
-              {isSpeechRecognitionSupported && (
-                <button type="button" onClick={handleVoiceToggle} style={styles.iconButton(isListening)} aria-label={isListening ? "Stop listening" : "Start voice input"} aria-pressed={isListening}>
-                  {isListening ? <MicOff size={18} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
-                </button>
+              {chatMode === "voice" && isSpeechRecognitionSupported ? (
+                // Voice mode: Show listening status with stop button
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", width: "100%" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isListening) {
+                          stopListening();
+                          setConversationMode(false);
+                        } else {
+                          unlockAudio();
+                          setConversationMode(true);
+                          startListening();
+                        }
+                      }}
+                      style={{
+                        width: "48px",
+                        height: "48px",
+                        borderRadius: "50%",
+                        border: "none",
+                        background: isListening ? "#ef4444" : primaryColor,
+                        color: "white",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        animation: isListening ? "pulse 2s infinite" : "none",
+                      }}
+                      aria-label={isListening ? "Stop listening" : "Start listening"}
+                      disabled={isLoading}
+                    >
+                      {isListening ? <MicOff size={20} aria-hidden="true" /> : <Mic size={20} aria-hidden="true" />}
+                    </button>
+                    {input && (
+                      <button type="submit" disabled={isLoading || !input.trim()} style={{ ...styles.iconButton(true), opacity: isLoading || !input.trim() ? 0.5 : 1 }} aria-label="Send message">
+                        <Send size={18} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                  {isListening && (
+                    <p style={{ fontSize: "12px", color: primaryColor, textAlign: "center" }}>
+                      {input ? `"${input}"` : "Listening..."}
+                    </p>
+                  )}
+                  {!isListening && !isLoading && (
+                    <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center" }}>
+                      Click the microphone to start speaking
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // Text mode: Show standard input
+                <>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type your question..."
+                    style={styles.input}
+                    disabled={isLoading}
+                    aria-label="Message input"
+                  />
+                  <button type="submit" disabled={isLoading || !input.trim()} style={{ ...styles.iconButton(true), opacity: isLoading || !input.trim() ? 0.5 : 1 }} aria-label="Send message">
+                    <Send size={18} aria-hidden="true" />
+                  </button>
+                </>
               )}
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={isListening ? "Listening..." : "Type or speak..."}
-                style={styles.input}
-                disabled={isLoading}
-                aria-label="Message input"
-              />
-              <button type="submit" disabled={isLoading || !input.trim()} style={{ ...styles.iconButton(true), opacity: isLoading || !input.trim() ? 0.5 : 1 }} aria-label="Send message">
-                <Send size={18} aria-hidden="true" />
-              </button>
             </form>
           </>
         )}
