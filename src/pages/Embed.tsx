@@ -283,15 +283,24 @@ const Embed = () => {
         {/* Security Note */}
         <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900">
           <CardHeader>
-            <CardTitle className="text-amber-800 dark:text-amber-200">Security Notes</CardTitle>
+            <CardTitle className="text-amber-800 dark:text-amber-200 flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Security Notes
+            </CardTitle>
           </CardHeader>
-          <CardContent className="text-amber-700 dark:text-amber-300 text-sm space-y-2">
+          <CardContent className="text-amber-700 dark:text-amber-300 text-sm space-y-3">
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Your API key is required for the widget to function</li>
-              <li>You can restrict API keys to specific domains for added security</li>
-              <li>API keys can be revoked at any time from the dashboard</li>
-              <li>Usage is tracked per API key for analytics and billing</li>
+              <li>API keys are <strong>domain-locked</strong> - they only work from your registered domain(s)</li>
+              <li>Rate limited to 100 requests/minute to prevent abuse</li>
+              <li>Keys can only access the chat feature - no sensitive data exposed</li>
+              <li>Usage is tracked for monitoring and analytics</li>
             </ul>
+            <Link 
+              to="/security" 
+              className="inline-flex items-center gap-1 text-amber-800 dark:text-amber-200 hover:underline font-medium"
+            >
+              Learn more about API key security →
+            </Link>
           </CardContent>
         </Card>
       </div>

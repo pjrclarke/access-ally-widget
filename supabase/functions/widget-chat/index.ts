@@ -6,7 +6,30 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
 };
 
-async function validateApiKey(apiKey: string, origin: string | null): Promise<{ valid: boolean; error?: string }> {
+// Rate limiting: Track requests per API key (in-memory for edge function)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 100; // requests per window
+const RATE_WINDOW_MS = 60 * 1000; // 1 minute
+
+function checkRateLimit(apiKey: string): { allowed: boolean; remaining: number; resetIn: number } {
+  const now = Date.now();
+  const record = rateLimitMap.get(apiKey);
+  
+  if (!record || now > record.resetTime) {
+    // New window
+    rateLimitMap.set(apiKey, { count: 1, resetTime: now + RATE_WINDOW_MS });
+    return { allowed: true, remaining: RATE_LIMIT - 1, resetIn: RATE_WINDOW_MS };
+  }
+  
+  if (record.count >= RATE_LIMIT) {
+    return { allowed: false, remaining: 0, resetIn: record.resetTime - now };
+  }
+  
+  record.count++;
+  return { allowed: true, remaining: RATE_LIMIT - record.count, resetIn: record.resetTime - now };
+}
+
+async function validateApiKey(apiKey: string, origin: string | null): Promise<{ valid: boolean; error?: string; domain?: string }> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   
@@ -31,20 +54,39 @@ async function validateApiKey(apiKey: string, origin: string | null): Promise<{ 
     return { valid: false, error: "Invalid or inactive API key" };
   }
 
-  // Check domain restriction if set
-  if (result.key_domain && result.key_domain !== "*" && origin) {
-    const allowedDomains = result.key_domain.split(",").map((d: string) => d.trim());
-    const originHost = new URL(origin).hostname;
-    const domainMatch = allowedDomains.some((domain: string) => 
-      originHost === domain || originHost.endsWith(`.${domain}`)
-    );
+  // STRICT domain validation - required unless domain is "*" or null
+  const keyDomain = result.key_domain;
+  
+  if (keyDomain && keyDomain !== "*") {
+    if (!origin) {
+      console.warn("No origin header - rejecting request for domain-locked key");
+      return { valid: false, error: "Origin header required for this API key" };
+    }
     
-    if (!domainMatch) {
-      return { valid: false, error: "API key not authorized for this domain" };
+    try {
+      const allowedDomains = keyDomain.split(",").map((d: string) => d.trim().toLowerCase());
+      const originHost = new URL(origin).hostname.toLowerCase();
+      
+      const domainMatch = allowedDomains.some((domain: string) => {
+        // Exact match or subdomain match
+        return originHost === domain || 
+               originHost.endsWith(`.${domain}`) ||
+               // Also allow www variants
+               originHost === `www.${domain}` ||
+               domain === `www.${originHost}`;
+      });
+      
+      if (!domainMatch) {
+        console.warn(`Domain mismatch: ${originHost} not in allowed list: ${allowedDomains.join(", ")}`);
+        return { valid: false, error: `API key not authorized for domain: ${originHost}` };
+      }
+    } catch (e) {
+      console.error("Error parsing origin:", e);
+      return { valid: false, error: "Invalid origin header" };
     }
   }
 
-  return { valid: true };
+  return { valid: true, domain: keyDomain };
 }
 
 serve(async (req) => {
@@ -71,6 +113,27 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: validation.error }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check rate limit
+    const rateLimit = checkRateLimit(apiKey);
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Rate limit exceeded. Please try again in a moment.",
+          retryAfter: Math.ceil(rateLimit.resetIn / 1000)
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-RateLimit-Limit": RATE_LIMIT.toString(),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": Math.ceil(rateLimit.resetIn / 1000).toString()
+          } 
+        }
       );
     }
 
