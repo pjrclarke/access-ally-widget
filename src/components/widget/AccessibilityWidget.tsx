@@ -289,7 +289,7 @@ export function AccessibilityWidget() {
   // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
     const domain = getCleanDomain();
-    return `Hi! I'm your accessibility assistant for ${domain}. To switch to text chat, just say "switch to text". How can I help you today?`;
+    return `Hi! I'm your accessibility assistant for ${domain}. To switch to text chat, just say "switch to text". How can I help navigate you through this site?`;
   }, []);
 
   // Auto-start voice mode when widget opens with announcement
