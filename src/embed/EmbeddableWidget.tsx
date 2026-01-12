@@ -427,17 +427,10 @@ export function EmbeddableWidget({
     autoSendDelay: 1500,
   });
 
-  // Generate welcome announcement
+  // Generate welcome announcement - kept short for faster speech
   const getWelcomeAnnouncement = useCallback(() => {
-    const domain = window.location.hostname.replace('www.', '');
-    const pageTitle = document.title || 'this page';
-    
-    const mainContent = document.querySelector("main")?.textContent || 
-                        document.querySelector("h1")?.textContent ||
-                        document.body.textContent || "";
-    const briefSummary = mainContent.slice(0, 200).trim().replace(/\s+/g, ' ');
-    
-    return `Hello! I'm your accessibility assistant for ${domain}. I can help you navigate through the website, find important areas, and answer questions about the content. You're currently on ${pageTitle}. ${briefSummary ? `This page appears to be about: ${briefSummary.slice(0, 100)}...` : ''} To switch to text chat instead of voice, say "switch to text" or click the Switch to Text button at the top of the chat. Now, how can I help you today?`;
+    const domain = window.location.hostname.replace('www.', '').split('.')[0];
+    return `Hi! I'm your accessibility assistant for ${domain}. Ask me anything, or say "switch to text" to type instead. How can I help?`;
   }, []);
 
   // Auto-start voice mode when widget opens with announcement
@@ -445,23 +438,21 @@ export function EmbeddableWidget({
     if (isOpen && activeTab === "chat" && chatMode === "voice" && isSpeechRecognitionSupported && !isLoading && !hasShownWelcome && messages.length === 0) {
       setHasShownWelcome(true);
       
-      const timer = setTimeout(() => {
-        unlockAudio();
-        const welcomeMessage = getWelcomeAnnouncement();
-        
-        // Add welcome as first assistant message
-        setMessages([{ role: "assistant", content: welcomeMessage }]);
-        
-        // Speak the welcome, then start listening after it finishes
-        if (isSpeechEnabled) {
-          speak(welcomeMessage);
-          setConversationMode(true);
-        } else {
-          setConversationMode(true);
-          startListening();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+      // Immediately show and speak welcome - no delay
+      unlockAudio();
+      const welcomeMessage = getWelcomeAnnouncement();
+      
+      // Add welcome as first assistant message
+      setMessages([{ role: "assistant", content: welcomeMessage }]);
+      
+      // Speak the welcome, then start listening after it finishes
+      if (isSpeechEnabled) {
+        speak(welcomeMessage);
+        setConversationMode(true);
+      } else {
+        setConversationMode(true);
+        startListening();
+      }
     }
   }, [isOpen, activeTab, chatMode, isSpeechRecognitionSupported, isLoading, hasShownWelcome, messages.length, unlockAudio, getWelcomeAnnouncement, isSpeechEnabled, speak, startListening]);
 
