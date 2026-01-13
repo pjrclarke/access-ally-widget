@@ -56,7 +56,7 @@ export function useSpeechRecognition({
   onError,
   continuous = false,
   language = "en-US",
-  autoSendDelay = 1500, // Default 1.5 seconds pause triggers auto-send
+  autoSendDelay = 2500, // Default 2.5 seconds pause triggers auto-send (increased for natural speech)
 }: UseSpeechRecognitionOptions = {}): SpeechRecognitionResult {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");

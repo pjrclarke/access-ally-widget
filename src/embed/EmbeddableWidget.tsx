@@ -422,7 +422,8 @@ export function EmbeddableWidget({
   const wasSpeakingRef = useRef(false);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
-    rate: settings.speechRate,
+    rate: settings.speechRate * 0.9, // Slightly slower for more natural speech
+    pitch: 1.0,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
 
@@ -444,7 +445,7 @@ export function EmbeddableWidget({
   } = useSpeechRecognition({
     onResult: handleVoiceResult,
     continuous: true,
-    autoSendDelay: 1500,
+    autoSendDelay: 3000, // 3 seconds - gives more time to speak naturally
   });
 
   // Generate welcome announcement - kept short for faster speech
@@ -1015,9 +1016,11 @@ export function EmbeddableWidget({
                 const content = parsed.choices?.[0]?.delta?.content || "";
                 if (content) {
                   fullResponse += content;
+                  // Clean markdown from display as well
+                  const cleanedForDisplay = stripForSpeech(fullResponse);
                   setMessages((prev) => {
                     const updated = [...prev];
-                    updated[updated.length - 1] = { role: "assistant", content: fullResponse };
+                    updated[updated.length - 1] = { role: "assistant", content: cleanedForDisplay };
                     return updated;
                   });
                 }
