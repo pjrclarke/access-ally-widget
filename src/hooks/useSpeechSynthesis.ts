@@ -87,8 +87,7 @@ export function useSpeechSynthesis({
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    // Slightly slower rate sounds more natural
-    utterance.rate = rate * 0.9;
+    utterance.rate = rate;
     utterance.pitch = pitch;
 
     // Set voice - prefer high-quality voices that sound more natural

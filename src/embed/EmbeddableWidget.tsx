@@ -422,7 +422,7 @@ export function EmbeddableWidget({
   const wasSpeakingRef = useRef(false);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
-    rate: settings.speechRate * 0.9, // Slightly slower for more natural speech
+    rate: settings.speechRate,
     pitch: 1.0,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
