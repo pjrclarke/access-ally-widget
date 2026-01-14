@@ -71,6 +71,7 @@ interface AccessibilitySettings {
   colorBlindMode: ColorBlindMode;
   hideImages: boolean;
   focusHighlight: boolean;
+  speechRate: number;
 }
 
 const DEFAULT_SETTINGS: AccessibilitySettings = {
@@ -83,6 +84,7 @@ const DEFAULT_SETTINGS: AccessibilitySettings = {
   colorBlindMode: "normal",
   hideImages: false,
   focusHighlight: false,
+  speechRate: 1.0,
 };
 
 // Load settings from localStorage
@@ -132,7 +134,7 @@ interface Message {
   content: string;
 }
 
-type TabType = "chat" | "visual" | "audit";
+type TabType = "chat" | "visual" | "audit" | "speech";
 type ChatMode = "voice" | "text";
 
 // Extract clean domain name (e.g., lovable.dev, google.com)
@@ -202,7 +204,7 @@ export function AccessibilityWidget() {
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
   
   // Destructure for convenience
-  const { textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode, hideImages, focusHighlight } = settings;
+  const { textScale, lineHeight, letterSpacing, contrastMode, dyslexiaFont, readingGuide, colorBlindMode, hideImages, focusHighlight, speechRate } = settings;
   
   // Update a single setting and persist
   const updateSetting = useCallback(<K extends keyof AccessibilitySettings>(
@@ -221,7 +223,7 @@ export function AccessibilityWidget() {
   const wasSpeakingRef = useRef(false);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
-    rate: 0.9,
+    rate: speechRate,
     onError: (error) => console.error("Speech synthesis error:", error),
   });
 
@@ -977,6 +979,20 @@ export function AccessibilityWidget() {
             <ClipboardCheck className="h-4 w-4" />
             Audit
           </button>
+          <button
+            onClick={() => setActiveTab("speech")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors",
+              activeTab === "speech" 
+                ? "text-primary border-b-2 border-primary" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-selected={activeTab === "speech"}
+            role="tab"
+          >
+            <Volume2 className="h-4 w-4" />
+            Speech
+          </button>
         </div>
 
         {/* Chat Tab Content */}
@@ -1620,6 +1636,83 @@ export function AccessibilityWidget() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Speech Tab Content */}
+        {activeTab === "speech" && (
+          <div className="h-[280px] overflow-y-auto p-4 space-y-5">
+            {/* Speech Rate */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Speech Rate</span>
+                </div>
+                <span className="text-sm text-muted-foreground font-medium">{speechRate.toFixed(1)}x</span>
+              </div>
+              <Slider
+                value={[speechRate]}
+                onValueChange={(value) => updateSetting("speechRate", value[0])}
+                min={0.5}
+                max={2.0}
+                step={0.1}
+                className="w-full"
+                aria-label="Speech rate"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Slower (0.5x)</span>
+                <span>Faster (2.0x)</span>
+              </div>
+            </div>
+
+            {/* Speech Toggle */}
+            <div className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2">
+                {isSpeechEnabled ? (
+                  <Volume2 className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <VolumeX className="h-4 w-4 text-muted-foreground" />
+                )}
+                <span className="text-sm font-medium">Enable Speech Output</span>
+              </div>
+              <Switch
+                checked={isSpeechEnabled}
+                onCheckedChange={setIsSpeechEnabled}
+                aria-label="Toggle speech output"
+              />
+            </div>
+
+            {/* Info Section */}
+            <div className="p-3 bg-secondary/50 rounded-lg border border-border">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <strong className="text-foreground">Speech settings:</strong> Control how the assistant reads responses aloud. 
+                Adjust the rate to speed up or slow down speech output.
+              </p>
+            </div>
+
+            {/* Test Speech Button */}
+            <Button
+              variant="outline"
+              onClick={() => {
+                unlockAudio();
+                speak("This is a test of the speech output at your selected rate.");
+              }}
+              className="w-full"
+            >
+              <Volume2 className="h-4 w-4 mr-2" />
+              Test Speech
+            </Button>
+
+            {/* Reset Button */}
+            <Button
+              variant="ghost"
+              onClick={() => updateSetting("speechRate", 1.0)}
+              className="w-full text-muted-foreground"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset to Default (1.0x)
+            </Button>
           </div>
         )}
 
