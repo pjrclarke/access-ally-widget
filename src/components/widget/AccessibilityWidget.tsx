@@ -183,7 +183,7 @@ export function AccessibilityWidget() {
           .select("api_key")
           .eq("is_active", true)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (data && !error) {
           setWidgetApiKey(data.api_key);

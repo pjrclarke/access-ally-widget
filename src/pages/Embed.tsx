@@ -28,7 +28,7 @@ const Embed = () => {
           .select("api_key")
           .eq("is_active", true)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (data && !error) {
           setApiKey(data.api_key);
