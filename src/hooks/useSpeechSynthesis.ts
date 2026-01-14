@@ -87,10 +87,11 @@ export function useSpeechSynthesis({
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = rate;
+    // Slightly slower rate sounds more natural
+    utterance.rate = rate * 0.9;
     utterance.pitch = pitch;
 
-    // Set voice if specified, otherwise use first available voice
+    // Set voice - prefer high-quality voices that sound more natural
     if (voices.length > 0) {
       if (voice) {
         const selectedVoice = voices.find(v => v.name === voice || v.lang === voice);
@@ -98,10 +99,29 @@ export function useSpeechSynthesis({
           utterance.voice = selectedVoice;
         }
       } else {
-        // Use first English voice or default
-        const englishVoice = voices.find(v => v.lang.startsWith("en"));
-        if (englishVoice) {
-          utterance.voice = englishVoice;
+        // Prefer premium/natural voices - these sound less robotic
+        const preferredVoices = [
+          "Google UK English Female",
+          "Google UK English Male", 
+          "Google US English",
+          "Samantha", // macOS
+          "Karen", // macOS
+          "Daniel", // macOS
+          "Microsoft Zira",
+          "Microsoft David",
+        ];
+        
+        let selectedVoice = voices.find(v => 
+          preferredVoices.some(pref => v.name.includes(pref))
+        );
+        
+        // Fallback to any English voice
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith("en"));
+        }
+        
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
         }
       }
     }
