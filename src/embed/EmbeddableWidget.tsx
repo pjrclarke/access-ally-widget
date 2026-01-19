@@ -417,9 +417,11 @@ export function EmbeddableWidget({
   const [isScanning, setIsScanning] = useState(false);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wasSpeakingRef = useRef(false);
+  const srAnnouncementRef = useRef<HTMLDivElement>(null);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
     rate: settings.speechRate,
@@ -445,37 +447,45 @@ export function EmbeddableWidget({
   } = useSpeechRecognition({
     onResult: handleVoiceResult,
     continuous: true,
-    autoSendDelay: 3000, // 3 seconds - gives more time to speak naturally
+    autoSendDelay: 2000, // 2 seconds of silence triggers send
   });
 
-  // Generate welcome announcement - kept short for faster speech
-  const getWelcomeAnnouncement = useCallback(() => {
+  // Screen-reader onboarding announcement on mount (no TTS)
+  useEffect(() => {
+    if (hasAnnouncedOnboarding) return;
+    
+    const timer = setTimeout(() => {
+      const domain = getCleanDomain();
+      if (srAnnouncementRef.current) {
+        srAnnouncementRef.current.textContent = `Welcome to ${domain}. This website has an AI accessibility assistant. Click or press Enter on the accessibility button to open.`;
+      }
+      setHasAnnouncedOnboarding(true);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [hasAnnouncedOnboarding]);
+
+  // Generate welcome message for when widget opens (user-initiated)
+  const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Hi! I'm your accessibility assistant for ${domain}. To switch to text chat, just say "switch to text". How can I help navigate you through this site?`;
+    return `Welcome to the accessibility assistant for ${domain}. I can help you summarize this page, find navigation links, or answer questions. What would you like to do?`;
   }, []);
 
-  // Auto-start voice mode when widget opens with announcement
+  // Show welcome when widget opens (user-initiated, not auto-TTS on load)
   useEffect(() => {
-    if (isOpen && activeTab === "chat" && chatMode === "voice" && isSpeechRecognitionSupported && !isLoading && !hasShownWelcome && messages.length === 0) {
+    if (isOpen && !hasShownWelcome && messages.length === 0) {
       setHasShownWelcome(true);
-      
-      // Immediately show and speak welcome - no delay
-      unlockAudio();
-      const welcomeMessage = getWelcomeAnnouncement();
-      
-      // Add welcome as first assistant message
+      const welcomeMessage = getWelcomeMessage();
       setMessages([{ role: "assistant", content: welcomeMessage }]);
       
-      // Speak the welcome, then start listening after it finishes
-      if (isSpeechEnabled) {
+      // Only speak if user has speech enabled AND actively opened the widget
+      if (isSpeechEnabled && chatMode === "voice" && isSpeechRecognitionSupported) {
+        unlockAudio();
         speak(welcomeMessage);
         setConversationMode(true);
-      } else {
-        setConversationMode(true);
-        startListening();
       }
     }
-  }, [isOpen, activeTab, chatMode, isSpeechRecognitionSupported, isLoading, hasShownWelcome, messages.length, unlockAudio, getWelcomeAnnouncement, isSpeechEnabled, speak, startListening]);
+  }, [isOpen, hasShownWelcome, messages.length, getWelcomeMessage, isSpeechEnabled, chatMode, isSpeechRecognitionSupported, unlockAudio, speak]);
 
   // Stop listening when switching to text mode
   useEffect(() => {
@@ -1105,6 +1115,25 @@ export function EmbeddableWidget({
 
   return (
     <div style={styles.container(position)}>
+      {/* Screen reader announcement (visually hidden) */}
+      <div
+        ref={srAnnouncementRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: "absolute",
+          width: "1px",
+          height: "1px",
+          padding: 0,
+          margin: "-1px",
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      />
+      
       {/* SVG Filters for Color Blindness */}
       <svg style={{ position: "absolute", height: 0, width: 0 }} aria-hidden="true">
         <defs>
@@ -1678,11 +1707,28 @@ export function EmbeddableWidget({
           ...styles.button(),
           transform: isOpen ? "rotate(90deg) scale(0.9)" : "none",
         }}
-        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}
+        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant. Press Enter to open."}
         aria-expanded={isOpen}
+        aria-describedby="a11y-embed-desc"
       >
         {isOpen ? <X size={24} color="white" aria-hidden="true" /> : <Accessibility size={24} color="white" aria-hidden="true" />}
       </button>
+      <span
+        id="a11y-embed-desc"
+        style={{
+          position: "absolute",
+          width: "1px",
+          height: "1px",
+          padding: 0,
+          margin: "-1px",
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        AI-powered accessibility assistant. Helps navigate pages, summarize content, and adjust visual settings.
+      </span>
 
       <style>{`
         @import url('https://fonts.cdnfonts.com/css/opendyslexic');

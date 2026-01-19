@@ -54,9 +54,9 @@ export function useSpeechRecognition({
   onResult,
   onFinalResult,
   onError,
-  continuous = false,
+  continuous = true, // Default to true for natural multi-word speech
   language = "en-US",
-  autoSendDelay = 2500, // Default 2.5 seconds pause triggers auto-send (increased for natural speech)
+  autoSendDelay = 2000, // 2 seconds pause triggers auto-send
 }: UseSpeechRecognitionOptions = {}): SpeechRecognitionResult {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -145,8 +145,10 @@ export function useSpeechRecognition({
           onResultRef.current(displayTranscript.trim());
         }
 
-        // Reset pause timer on any speech activity
-        startPauseTimer();
+        // Reset pause timer on any speech activity (only if we have content)
+        if (displayTranscript.trim()) {
+          startPauseTimer();
+        }
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
