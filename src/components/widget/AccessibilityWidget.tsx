@@ -161,7 +161,8 @@ export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
   const [chatMode, setChatMode] = useState<ChatMode>("voice");
-  const [hasShownModeAnnouncement, setHasShownModeAnnouncement] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -174,6 +175,8 @@ export function AccessibilityWidget() {
   const [widgetApiKey, setWidgetApiKey] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const widgetButtonRef = useRef<HTMLButtonElement>(null);
+  const srAnnouncementRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Fetch widget API key on mount
@@ -250,7 +253,8 @@ export function AccessibilityWidget() {
   } = useSpeechRecognition({
     onResult: handleVoiceResult,
     onFinalResult: handleVoiceFinalResult,
-    autoSendDelay: 1500, // 1.5 seconds of silence triggers send
+    continuous: true, // Keep listening for multi-word phrases
+    autoSendDelay: 2000, // 2 seconds of silence triggers send
     onError: (error) => {
       toast({
         title: "Voice Error",
@@ -288,31 +292,55 @@ export function AccessibilityWidget() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Generate welcome announcement - kept short for faster speech
-  const getWelcomeAnnouncement = useCallback(() => {
+  // Screen-reader onboarding announcement on page load (no TTS)
+  useEffect(() => {
+    if (hasAnnouncedOnboarding) return;
+    
+    // Announce to screen readers after a short delay
+    const timer = setTimeout(() => {
+      const domain = getCleanDomain();
+      if (srAnnouncementRef.current) {
+        srAnnouncementRef.current.textContent = `Welcome to ${domain}. This website has an AI accessibility assistant to help you navigate. Press Alt+A to open, or Tab to the accessibility button.`;
+      }
+      setHasAnnouncedOnboarding(true);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, [hasAnnouncedOnboarding]);
+
+  // Focus widget button on first Tab press for keyboard users
+  useEffect(() => {
+    let hasTabbed = false;
+    
+    const handleFirstTab = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && !hasTabbed && !hasAnnouncedOnboarding) {
+        hasTabbed = true;
+        // Don't prevent default - let them tab naturally, but ensure widget button is focusable
+      }
+    };
+    
+    window.addEventListener("keydown", handleFirstTab);
+    return () => window.removeEventListener("keydown", handleFirstTab);
+  }, [hasAnnouncedOnboarding]);
+
+  // Generate welcome message for when widget opens (user-initiated)
+  const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Hi! I'm your accessibility assistant for ${domain}. To switch to text chat, just say "switch to text". How can I help navigate you through this site?`;
+    return `Welcome to the accessibility assistant for ${domain}. I can help you summarize this page, find navigation links, or answer questions. What would you like to do?`;
   }, []);
 
-  // Auto-start voice mode when widget opens with announcement
+  // Show welcome when widget opens (user-initiated, not auto-TTS on load)
   useEffect(() => {
-    if (isOpen && activeTab === "chat" && chatMode === "voice" && isVoiceSupported && !isLoading && !hasShownModeAnnouncement && messages.length === 0) {
-      setHasShownModeAnnouncement(true);
-      
-      // Immediately show and speak welcome - no delay
-      unlockAudio();
-      const welcomeMessage = getWelcomeAnnouncement();
-      
-      // Add welcome as first assistant message
+    if (isOpen && !hasShownWelcome && messages.length === 0) {
+      setHasShownWelcome(true);
+      const welcomeMessage = getWelcomeMessage();
       setMessages([{ role: "assistant", content: welcomeMessage }]);
       
-      // Speak the welcome, then start listening after it finishes
-      if (isSpeechEnabled) {
+      // Only speak if user has speech enabled AND actively opened the widget
+      if (isSpeechEnabled && chatMode === "voice" && isVoiceSupported) {
+        unlockAudio();
         speak(welcomeMessage);
         setConversationMode(true);
-      } else {
-        setConversationMode(true);
-        startListening();
       }
     }
     
@@ -320,7 +348,7 @@ export function AccessibilityWidget() {
     if (isOpen && chatMode === "text") {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen, activeTab, chatMode, isVoiceSupported, isLoading, hasShownModeAnnouncement, messages.length, unlockAudio, getWelcomeAnnouncement, isSpeechEnabled, speak, startListening]);
+  }, [isOpen, hasShownWelcome, messages.length, getWelcomeMessage, isSpeechEnabled, chatMode, isVoiceSupported, unlockAudio, speak]);
 
   // Stop listening when switching to text mode
   useEffect(() => {
@@ -863,8 +891,18 @@ export function AccessibilityWidget() {
         </div>
       )}
     
+      {/* Screen reader announcement (visually hidden) */}
+      <div
+        ref={srAnnouncementRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      />
+
       {/* Floating Button */}
       <button
+        ref={widgetButtonRef}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
@@ -872,8 +910,9 @@ export function AccessibilityWidget() {
           "flex items-center justify-center",
           isOpen && "rotate-90 scale-90"
         )}
-        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant"}
+        aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant. Press Enter to open."}
         aria-expanded={isOpen}
+        aria-describedby="a11y-widget-desc"
       >
         {isOpen ? (
           <X className="h-6 w-6 text-primary-foreground" />
@@ -881,6 +920,9 @@ export function AccessibilityWidget() {
           <Accessibility className="h-6 w-6 text-primary-foreground" />
         )}
       </button>
+      <span id="a11y-widget-desc" className="sr-only">
+        AI-powered accessibility assistant. Helps navigate pages, summarize content, and adjust visual settings.
+      </span>
 
       {/* Chat Panel */}
       <div
