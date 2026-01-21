@@ -64,6 +64,10 @@ export function useSpeechRecognition({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const pauseTimerRef = useRef<number | null>(null);
   const accumulatedTranscriptRef = useRef("");
+  const latestTranscriptRef = useRef("");
+  // Tracks whether the user intends to keep listening (used for iOS/Safari where recognition frequently ends)
+  const shouldListenRef = useRef(false);
+  const isRestartingRef = useRef(false);
   
   // Store callbacks in refs to avoid recreating recognition on callback changes
   const onResultRef = useRef(onResult);
@@ -89,13 +93,16 @@ export function useSpeechRecognition({
   const startPauseTimer = useCallback(() => {
     clearPauseTimer();
     pauseTimerRef.current = window.setTimeout(() => {
-      const finalText = accumulatedTranscriptRef.current.trim();
+      const finalText = (accumulatedTranscriptRef.current || latestTranscriptRef.current).trim();
       if (finalText && onFinalResultRef.current) {
         onFinalResultRef.current(finalText);
         accumulatedTranscriptRef.current = "";
+        latestTranscriptRef.current = "";
         setTranscript("");
         // Stop listening after auto-send for natural conversation flow
         if (recognitionRef.current) {
+          // Prevent Safari/iOS onend auto-restart for this completed utterance
+          shouldListenRef.current = false;
           recognitionRef.current.stop();
         }
       }
@@ -138,6 +145,7 @@ export function useSpeechRecognition({
         }
 
         const displayTranscript = accumulatedTranscriptRef.current + (interimTranscript ? " " + interimTranscript : "");
+        latestTranscriptRef.current = displayTranscript.trim();
         setTranscript(displayTranscript.trim());
 
         // Call onResult for live updates
@@ -154,6 +162,17 @@ export function useSpeechRecognition({
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
         console.error("Speech recognition error:", event.error);
         setIsListening(false);
+
+        // Normal/expected errors on mobile when user pauses or recognition is interrupted.
+        if (event.error === "no-speech" || event.error === "aborted") {
+          return;
+        }
+
+        // Permission errors should disable auto-restart.
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          shouldListenRef.current = false;
+        }
+
         if (onErrorRef.current) {
           onErrorRef.current(event.error);
         }
@@ -161,6 +180,24 @@ export function useSpeechRecognition({
 
       recognition.onend = () => {
         setIsListening(false);
+
+        // iOS/Safari: continuous is unreliable and recognition frequently ends.
+        // If the user still intends to listen, restart to simulate continuous listening.
+        if (shouldListenRef.current && recognitionRef.current) {
+          if (isRestartingRef.current) return;
+          isRestartingRef.current = true;
+
+          window.setTimeout(() => {
+            isRestartingRef.current = false;
+            if (!shouldListenRef.current || !recognitionRef.current) return;
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              // Some browsers throw if start is called too quickly or without gesture; ignore.
+              console.warn("Speech recognition restart failed:", e);
+            }
+          }, 150);
+        }
       };
 
       recognitionRef.current = recognition;
@@ -170,6 +207,7 @@ export function useSpeechRecognition({
 
     return () => {
       clearPauseTimer();
+      shouldListenRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
@@ -178,8 +216,10 @@ export function useSpeechRecognition({
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {
+      shouldListenRef.current = true;
       setTranscript("");
       accumulatedTranscriptRef.current = "";
+      latestTranscriptRef.current = "";
       clearPauseTimer();
       try {
         recognitionRef.current.start();
@@ -191,6 +231,7 @@ export function useSpeechRecognition({
   }, [isListening, clearPauseTimer]);
 
   const stopListening = useCallback(() => {
+    shouldListenRef.current = false;
     clearPauseTimer();
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
