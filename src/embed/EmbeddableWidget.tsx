@@ -410,7 +410,6 @@ export function EmbeddableWidget({
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
-  const [conversationMode, setConversationMode] = useState(false);
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
   const [readingGuideY, setReadingGuideY] = useState(0);
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
@@ -420,7 +419,6 @@ export function EmbeddableWidget({
   const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const wasSpeakingRef = useRef(false);
   const srAnnouncementRef = useRef<HTMLDivElement>(null);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
@@ -482,7 +480,6 @@ export function EmbeddableWidget({
       if (isSpeechEnabled && chatMode === "voice" && isSpeechRecognitionSupported) {
         unlockAudio();
         speak(welcomeMessage);
-        setConversationMode(true);
       }
     }
   }, [isOpen, hasShownWelcome, messages.length, getWelcomeMessage, isSpeechEnabled, chatMode, isSpeechRecognitionSupported, unlockAudio, speak]);
@@ -491,22 +488,8 @@ export function EmbeddableWidget({
   useEffect(() => {
     if (chatMode === "text" && isListening) {
       stopListening();
-      setConversationMode(false);
     }
   }, [chatMode, isListening, stopListening]);
-
-  // Auto-restart listening after AI finishes speaking
-  useEffect(() => {
-    if (wasSpeakingRef.current && !isSpeaking && conversationMode && chatMode === "voice" && !isListening) {
-      const timer = setTimeout(() => {
-        if (conversationMode && chatMode === "voice" && !isListening) {
-          startListening();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    wasSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, conversationMode, chatMode, isListening, startListening]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -1067,9 +1050,7 @@ export function EmbeddableWidget({
     unlockAudio();
     if (isListening) {
       stopListening();
-      setConversationMode(false);
     } else {
-      setConversationMode(true);
       startListening();
     }
   };
@@ -1312,10 +1293,8 @@ export function EmbeddableWidget({
                       onClick={() => {
                         if (isListening) {
                           stopListening();
-                          setConversationMode(false);
                         } else {
                           unlockAudio();
-                          setConversationMode(true);
                           startListening();
                         }
                       }}
