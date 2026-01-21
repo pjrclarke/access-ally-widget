@@ -99,28 +99,53 @@ export function useSpeechSynthesis({
         }
       } else {
         // Prefer premium/natural voices - these sound less robotic
+        // Order matters: first match wins
         const preferredVoices = [
+          // Google voices (Chrome) - highest quality
           "Google UK English Female",
           "Google UK English Male", 
           "Google US English",
-          "Samantha", // macOS
-          "Karen", // macOS
-          "Daniel", // macOS
+          // Apple voices (Safari/iOS) - natural sounding
+          "Samantha",
+          "Karen",
+          "Daniel",
+          "Moira",
+          "Tessa",
+          "Fiona",
+          // Microsoft voices (Edge/Windows)
           "Microsoft Zira",
           "Microsoft David",
+          "Microsoft Mark",
+          // Generic premium indicators
+          "Premium",
+          "Enhanced",
+          "Natural",
         ];
         
-        let selectedVoice = voices.find(v => 
-          preferredVoices.some(pref => v.name.includes(pref))
-        );
+        let selectedVoice: SpeechSynthesisVoice | undefined;
         
-        // Fallback to any English voice
+        // First, try to find an exact or partial match from preferred list
+        for (const pref of preferredVoices) {
+          selectedVoice = voices.find(v => v.name.includes(pref));
+          if (selectedVoice) break;
+        }
+        
+        // Fallback to any English voice that's not "Google" basic (often robotic on mobile)
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => 
+            v.lang.startsWith("en") && 
+            !v.name.includes("Google") // Avoid basic Google voices on Android
+          );
+        }
+        
+        // Final fallback - any English voice
         if (!selectedVoice) {
           selectedVoice = voices.find(v => v.lang.startsWith("en"));
         }
         
         if (selectedVoice) {
           utterance.voice = selectedVoice;
+          console.log("Selected voice:", selectedVoice.name);
         }
       }
     }

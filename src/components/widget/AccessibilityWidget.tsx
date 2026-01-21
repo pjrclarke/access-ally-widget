@@ -160,7 +160,7 @@ function getCleanDomain(): string {
 export function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
-  const [chatMode, setChatMode] = useState<ChatMode>("voice");
+  const [chatMode, setChatMode] = useState<ChatMode>("text"); // Default to text mode for accessibility
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -310,7 +310,7 @@ export function AccessibilityWidget() {
   // Generate welcome message for when widget opens (user-initiated)
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. I can help you summarize this page, find navigation links, or answer questions. What would you like to do?`;
+    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your request. I can summarize this page, help you navigate, find links, or answer questions about the content.`;
   }, []);
 
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
@@ -1146,10 +1146,10 @@ export function AccessibilityWidget() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Type className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Text Size</span>
+                  <Type className="h-4 w-4 text-foreground" aria-hidden="true" />
+                  <label id="text-size-label" className="text-sm font-medium text-foreground">Text Size</label>
                 </div>
-                <span className="text-sm text-muted-foreground">{textScale}%</span>
+                <span className="text-sm font-semibold text-foreground" aria-live="polite">{textScale}%</span>
               </div>
               <Slider
                 value={[textScale]}
@@ -1158,9 +1158,12 @@ export function AccessibilityWidget() {
                 max={150}
                 step={10}
                 className="w-full"
-                aria-label="Text size"
+                aria-labelledby="text-size-label"
+                aria-valuemin={100}
+                aria-valuemax={150}
+                aria-valuenow={textScale}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-xs text-foreground/70">
                 <span>Normal</span>
                 <span className="font-medium">Large</span>
               </div>
@@ -1170,10 +1173,10 @@ export function AccessibilityWidget() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <AlignVerticalSpaceAround className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Line Spacing</span>
+                  <AlignVerticalSpaceAround className="h-4 w-4 text-foreground" aria-hidden="true" />
+                  <label id="line-height-label" className="text-sm font-medium text-foreground">Line Spacing</label>
                 </div>
-                <span className="text-sm text-muted-foreground">{lineHeight}%</span>
+                <span className="text-sm font-semibold text-foreground" aria-live="polite">{lineHeight}%</span>
               </div>
               <Slider
                 value={[lineHeight]}
@@ -1182,9 +1185,12 @@ export function AccessibilityWidget() {
                 max={200}
                 step={25}
                 className="w-full"
-                aria-label="Line spacing"
+                aria-labelledby="line-height-label"
+                aria-valuemin={100}
+                aria-valuemax={200}
+                aria-valuenow={lineHeight}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-xs text-foreground/70">
                 <span>Normal</span>
                 <span className="font-medium">Spacious</span>
               </div>
@@ -1194,10 +1200,10 @@ export function AccessibilityWidget() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Space className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Letter Spacing</span>
+                  <Space className="h-4 w-4 text-foreground" aria-hidden="true" />
+                  <label id="letter-spacing-label" className="text-sm font-medium text-foreground">Letter Spacing</label>
                 </div>
-                <span className="text-sm text-muted-foreground">+{letterSpacing}%</span>
+                <span className="text-sm font-semibold text-foreground" aria-live="polite">+{letterSpacing}%</span>
               </div>
               <Slider
                 value={[letterSpacing]}
@@ -1206,9 +1212,12 @@ export function AccessibilityWidget() {
                 max={20}
                 step={5}
                 className="w-full"
-                aria-label="Letter spacing"
+                aria-labelledby="letter-spacing-label"
+                aria-valuemin={0}
+                aria-valuemax={20}
+                aria-valuenow={letterSpacing}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-xs text-foreground/70">
                 <span>Normal</span>
                 <span className="font-medium">Wide</span>
               </div>
@@ -1216,8 +1225,8 @@ export function AccessibilityWidget() {
             {/* Contrast Mode */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Contrast className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Contrast Mode</span>
+                <Contrast className="h-4 w-4 text-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium text-foreground">Contrast Mode</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -1262,71 +1271,71 @@ export function AccessibilityWidget() {
             {/* Dyslexia Font Toggle */}
             <div className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <BookOpen className="h-4 w-4 text-foreground" aria-hidden="true" />
                 <div>
-                  <span className="text-sm font-medium">Dyslexia-Friendly Font</span>
-                  <p className="text-xs text-muted-foreground">Uses OpenDyslexic font</p>
+                  <span id="dyslexia-label" className="text-sm font-medium text-foreground">Dyslexia-Friendly Font</span>
+                  <p className="text-xs text-foreground/70">Uses OpenDyslexic font</p>
                 </div>
               </div>
               <Switch
                 checked={dyslexiaFont}
                 onCheckedChange={(checked) => updateSetting("dyslexiaFont", checked)}
-                aria-label="Toggle dyslexia-friendly font"
+                aria-labelledby="dyslexia-label"
               />
             </div>
 
             {/* Reading Guide Toggle */}
             <div className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
-                <Ruler className="h-4 w-4 text-muted-foreground" />
+                <Ruler className="h-4 w-4 text-foreground" aria-hidden="true" />
                 <div>
-                  <span className="text-sm font-medium">Reading Guide</span>
-                  <p className="text-xs text-muted-foreground">Highlights current line</p>
+                  <span id="reading-guide-label" className="text-sm font-medium text-foreground">Reading Guide</span>
+                  <p className="text-xs text-foreground/70">Highlights current line</p>
                 </div>
               </div>
               <Switch
                 checked={readingGuide}
                 onCheckedChange={(checked) => updateSetting("readingGuide", checked)}
-                aria-label="Toggle reading guide"
+                aria-labelledby="reading-guide-label"
               />
             </div>
 
             {/* Hide Images Toggle */}
             <div className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
-                <ImageOff className="h-4 w-4 text-muted-foreground" />
+                <ImageOff className="h-4 w-4 text-foreground" aria-hidden="true" />
                 <div>
-                  <span className="text-sm font-medium">Hide Images</span>
-                  <p className="text-xs text-muted-foreground">Reduces visual clutter</p>
+                  <span id="hide-images-label" className="text-sm font-medium text-foreground">Hide Images</span>
+                  <p className="text-xs text-foreground/70">Reduces visual clutter</p>
                 </div>
               </div>
               <Switch
                 checked={hideImages}
                 onCheckedChange={(checked) => updateSetting("hideImages", checked)}
-                aria-label="Toggle hide images"
+                aria-labelledby="hide-images-label"
               />
             </div>
 
             {/* Focus Highlight Toggle */}
             <div className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
-                <Focus className="h-4 w-4 text-muted-foreground" />
+                <Focus className="h-4 w-4 text-foreground" aria-hidden="true" />
                 <div>
-                  <span className="text-sm font-medium">Focus Highlight</span>
-                  <p className="text-xs text-muted-foreground">Enhanced focus outlines</p>
+                  <span id="focus-highlight-label" className="text-sm font-medium text-foreground">Focus Highlight</span>
+                  <p className="text-xs text-foreground/70">Enhanced focus outlines</p>
                 </div>
               </div>
               <Switch
                 checked={focusHighlight}
                 onCheckedChange={(checked) => updateSetting("focusHighlight", checked)}
-                aria-label="Toggle focus highlight"
+                aria-labelledby="focus-highlight-label"
               />
             </div>
             {/* Color Blind Mode */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Eye className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Color Vision</span>
+                <Eye className="h-4 w-4 text-foreground" aria-hidden="true" />
+                <span className="text-sm font-medium text-foreground">Color Vision</span>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button

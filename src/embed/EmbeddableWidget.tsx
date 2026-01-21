@@ -405,7 +405,7 @@ export function EmbeddableWidget({
   
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("chat");
-  const [chatMode, setChatMode] = useState<ChatMode>("voice");
+  const [chatMode, setChatMode] = useState<ChatMode>("text"); // Default to text mode for accessibility
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -466,7 +466,7 @@ export function EmbeddableWidget({
   // Generate welcome message for when widget opens (user-initiated)
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. I can help you summarize this page, find navigation links, or answer questions. What would you like to do?`;
+    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your request. I can summarize this page, help you navigate, find links, or answer questions about the content.`;
   }, []);
 
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
@@ -1362,34 +1362,34 @@ export function EmbeddableWidget({
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Type size={16} color="#6b7280" />
-                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Text Size</span>
+                    <Type size={16} color="#1f2937" aria-hidden="true" />
+                    <label id="embed-text-size-label" style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Text Size</label>
                   </div>
-                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.textScale}%</span>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#1f2937" }}>{settings.textScale}%</span>
                 </div>
-                <input type="range" min={100} max={150} step={10} value={settings.textScale} onChange={(e) => updateSetting("textScale", parseInt(e.target.value))} style={styles.slider} />
+                <input type="range" min={100} max={150} step={10} value={settings.textScale} onChange={(e) => updateSetting("textScale", parseInt(e.target.value))} style={styles.slider} aria-labelledby="embed-text-size-label" />
               </div>
 
               {/* Line Spacing */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <AlignVerticalSpaceAround size={16} color="#6b7280" />
-                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Line Spacing</span>
+                    <AlignVerticalSpaceAround size={16} color="#1f2937" aria-hidden="true" />
+                    <label id="embed-line-height-label" style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Line Spacing</label>
                   </div>
-                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.lineHeight}%</span>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#1f2937" }}>{settings.lineHeight}%</span>
                 </div>
-                <input type="range" min={100} max={200} step={25} value={settings.lineHeight} onChange={(e) => updateSetting("lineHeight", parseInt(e.target.value))} style={styles.slider} />
+                <input type="range" min={100} max={200} step={25} value={settings.lineHeight} onChange={(e) => updateSetting("lineHeight", parseInt(e.target.value))} style={styles.slider} aria-labelledby="embed-line-height-label" />
               </div>
 
               {/* Letter Spacing */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <Space size={16} color="#6b7280" aria-hidden="true" />
-                    <span style={{ fontSize: "14px", fontWeight: 500 }}>Letter Spacing</span>
+                    <Space size={16} color="#1f2937" aria-hidden="true" />
+                    <label id="embed-letter-spacing-label" style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Letter Spacing</label>
                   </div>
-                  <span style={{ fontSize: "13px", color: "#6b7280" }}>{settings.letterSpacing}%</span>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "#1f2937" }}>{settings.letterSpacing}%</span>
                 </div>
                 <input
                   type="range"
@@ -1399,19 +1399,19 @@ export function EmbeddableWidget({
                   value={settings.letterSpacing}
                   onChange={(e) => updateSetting("letterSpacing", parseInt(e.target.value))}
                   style={styles.slider}
-                  aria-label="Letter spacing slider"
+                  aria-labelledby="embed-letter-spacing-label"
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
-                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Normal</span>
-                  <span style={{ fontSize: "11px", color: "#6b7280" }}>Wide</span>
+                  <span style={{ fontSize: "11px", color: "#374151" }}>Normal</span>
+                  <span style={{ fontSize: "11px", color: "#374151" }}>Wide</span>
                 </div>
               </div>
 
               {/* Contrast Mode */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <Contrast size={16} color="#6b7280" aria-hidden="true" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Contrast Mode</span>
+                  <Contrast size={16} color="#1f2937" aria-hidden="true" />
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Contrast Mode</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px" }}>
                   {(["normal", "high", "inverted"] as ContrastMode[]).map((mode) => (
@@ -1425,10 +1425,10 @@ export function EmbeddableWidget({
               {/* Toggles */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <BookOpen size={16} color="#6b7280" aria-hidden="true" />
+                  <BookOpen size={16} color="#1f2937" aria-hidden="true" />
                   <div>
-                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Dyslexia Font</span>
-                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Uses OpenDyslexic</span>
+                    <span id="embed-dyslexia-label" style={{ fontSize: "14px", fontWeight: 500, display: "block", color: "#1f2937" }}>Dyslexia Font</span>
+                    <span style={{ fontSize: "11px", color: "#374151" }}>Uses OpenDyslexic</span>
                   </div>
                 </div>
                 {renderToggle(settings.dyslexiaFont, () => updateSetting("dyslexiaFont", !settings.dyslexiaFont), "Toggle dyslexia font")}
@@ -1436,10 +1436,10 @@ export function EmbeddableWidget({
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Ruler size={16} color="#6b7280" aria-hidden="true" />
+                  <Ruler size={16} color="#1f2937" aria-hidden="true" />
                   <div>
-                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Reading Guide</span>
-                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Highlights current line</span>
+                    <span id="embed-reading-guide-label" style={{ fontSize: "14px", fontWeight: 500, display: "block", color: "#1f2937" }}>Reading Guide</span>
+                    <span style={{ fontSize: "11px", color: "#374151" }}>Highlights current line</span>
                   </div>
                 </div>
                 {renderToggle(settings.readingGuide, () => updateSetting("readingGuide", !settings.readingGuide), "Toggle reading guide")}
@@ -1447,10 +1447,10 @@ export function EmbeddableWidget({
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <ImageOff size={16} color="#6b7280" aria-hidden="true" />
+                  <ImageOff size={16} color="#1f2937" aria-hidden="true" />
                   <div>
-                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Hide Images</span>
-                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Reduces visual clutter</span>
+                    <span id="embed-hide-images-label" style={{ fontSize: "14px", fontWeight: 500, display: "block", color: "#1f2937" }}>Hide Images</span>
+                    <span style={{ fontSize: "11px", color: "#374151" }}>Reduces visual clutter</span>
                   </div>
                 </div>
                 {renderToggle(settings.hideImages, () => updateSetting("hideImages", !settings.hideImages), "Toggle hide images")}
@@ -1458,10 +1458,10 @@ export function EmbeddableWidget({
 
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Focus size={16} color="#6b7280" aria-hidden="true" />
+                  <Focus size={16} color="#1f2937" aria-hidden="true" />
                   <div>
-                    <span style={{ fontSize: "14px", fontWeight: 500, display: "block" }}>Focus Highlight</span>
-                    <span style={{ fontSize: "11px", color: "#6b7280" }}>Enhanced focus outlines</span>
+                    <span id="embed-focus-highlight-label" style={{ fontSize: "14px", fontWeight: 500, display: "block", color: "#1f2937" }}>Focus Highlight</span>
+                    <span style={{ fontSize: "11px", color: "#374151" }}>Enhanced focus outlines</span>
                   </div>
                 </div>
                 {renderToggle(settings.focusHighlight, () => updateSetting("focusHighlight", !settings.focusHighlight), "Toggle focus highlight")}
@@ -1470,8 +1470,8 @@ export function EmbeddableWidget({
               {/* Color Vision */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <Eye size={16} color="#6b7280" aria-hidden="true" />
-                  <span style={{ fontSize: "14px", fontWeight: 500 }}>Color Vision</span>
+                  <Eye size={16} color="#1f2937" aria-hidden="true" />
+                  <span style={{ fontSize: "14px", fontWeight: 500, color: "#1f2937" }}>Color Vision</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                   {(["normal", "protanopia", "deuteranopia", "tritanopia"] as ColorBlindMode[]).map((mode) => (
@@ -1483,7 +1483,7 @@ export function EmbeddableWidget({
               </div>
 
               {/* Reset */}
-              <button onClick={resetSettings} disabled={!hasCustomSettings} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: hasCustomSettings ? "pointer" : "not-allowed", opacity: hasCustomSettings ? 1 : 0.5, fontSize: "14px" }} aria-disabled={!hasCustomSettings}>
+              <button onClick={resetSettings} disabled={!hasCustomSettings} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "10px", border: "1px solid #e5e7eb", borderRadius: "8px", background: "white", cursor: hasCustomSettings ? "pointer" : "not-allowed", opacity: hasCustomSettings ? 1 : 0.5, fontSize: "14px", color: "#1f2937" }} aria-disabled={!hasCustomSettings}>
                 <RotateCcw size={16} aria-hidden="true" />
                 Reset to Defaults
               </button>
@@ -1491,17 +1491,17 @@ export function EmbeddableWidget({
               {/* Keyboard Shortcuts */}
               <div style={{ paddingTop: "12px", borderTop: "1px solid #e5e7eb" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <Keyboard size={14} color="#6b7280" aria-hidden="true" />
-                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#6b7280" }}>Keyboard Shortcuts</span>
+                  <Keyboard size={14} color="#374151" aria-hidden="true" />
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "#374151" }}>Keyboard Shortcuts</span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: "11px", color: "#6b7280" }}>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+A</kbd> Toggle Panel</span>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+R</kbd> Reading Guide</span>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+D</kbd> Dyslexia Font</span>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+H</kbd> High Contrast</span>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt++</kbd> Increase Text</span>
-                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+-</kbd> Decrease Text</span>
-                  <span style={{ gridColumn: "span 2" }}><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px" }}>Alt+0</kbd> Reset All</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", fontSize: "11px", color: "#374151" }}>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+A</kbd> Toggle Panel</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+R</kbd> Reading Guide</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+D</kbd> Dyslexia Font</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+H</kbd> High Contrast</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt++</kbd> Increase Text</span>
+                  <span><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+-</kbd> Decrease Text</span>
+                  <span style={{ gridColumn: "span 2" }}><kbd style={{ padding: "1px 4px", background: "#f3f4f6", borderRadius: "2px", fontSize: "10px", color: "#1f2937" }}>Alt+0</kbd> Reset All</span>
                 </div>
               </div>
             </div>
