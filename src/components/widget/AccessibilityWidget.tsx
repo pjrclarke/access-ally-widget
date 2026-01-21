@@ -639,13 +639,11 @@ export function AccessibilityWidget() {
     
     if (isListening) {
       stopListening();
-      setConversationMode(false); // Exit conversation mode when manually stopping
       // Send the message after stopping
       if (inputValue.trim()) {
         sendMessage(inputValue);
       }
     } else {
-      setConversationMode(true); // Enter conversation mode
       startListening();
     }
   };
@@ -1752,10 +1750,8 @@ export function AccessibilityWidget() {
                     onClick={() => {
                       if (isListening) {
                         stopListening();
-                        setConversationMode(false);
                       } else {
                         unlockAudio();
-                        setConversationMode(true);
                         startListening();
                       }
                     }}
