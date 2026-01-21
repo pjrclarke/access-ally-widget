@@ -221,9 +221,7 @@ export function AccessibilityWidget() {
     });
   }, []);
 
-  // Track if we're in conversation mode (auto-listen after AI speaks)
-  const [conversationMode, setConversationMode] = useState(false);
-  const wasSpeakingRef = useRef(false);
+  // Voice UX: push-to-talk (turn-based). We do NOT auto-start the mic after the assistant speaks.
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
     rate: speechRate,
@@ -265,20 +263,6 @@ export function AccessibilityWidget() {
       });
     },
   });
-
-  // Auto-start listening when AI finishes speaking in conversation mode
-  useEffect(() => {
-    // Detect transition from speaking to not speaking
-    if (wasSpeakingRef.current && !isSpeaking && conversationMode && isSpeechEnabled && !isLoading && !isListening && chatMode === "voice") {
-      // Small delay to ensure clean transition
-      setTimeout(() => {
-        if (!isListening) {
-          startListening();
-        }
-      }, 400);
-    }
-    wasSpeakingRef.current = isSpeaking;
-  }, [isSpeaking, conversationMode, isSpeechEnabled, isLoading, isListening, chatMode, startListening]);
 
   // Update input when transcript changes
   useEffect(() => {
@@ -340,7 +324,6 @@ export function AccessibilityWidget() {
       if (isSpeechEnabled && chatMode === "voice" && isVoiceSupported) {
         unlockAudio();
         speak(welcomeMessage);
-        setConversationMode(true);
       }
     }
     
@@ -354,7 +337,6 @@ export function AccessibilityWidget() {
   useEffect(() => {
     if (chatMode === "text" && isListening) {
       stopListening();
-      setConversationMode(false);
     }
   }, [chatMode, isListening, stopListening]);
 
