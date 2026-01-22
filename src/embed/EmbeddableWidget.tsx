@@ -466,7 +466,7 @@ export function EmbeddableWidget({
   // Generate welcome message for when widget opens (user-initiated)
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your request. I can summarize this page, help you navigate, find links, or answer questions about the content.`;
+    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your instructions. I can summarise this page, read out the menu options, find downloadable links, or read the page headings to help you navigate.`;
   }, []);
 
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
@@ -1242,27 +1242,38 @@ export function EmbeddableWidget({
                       <Accessibility size={48} color="#d1d5db" style={{ marginBottom: "16px" }} aria-hidden="true" />
                       <p style={{ marginBottom: "8px", fontWeight: 500 }}>How can I help you today?</p>
                       <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Type your question below</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "280px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "320px" }}>
                         <button
                           type="button"
-                          onClick={() => sendQuickMessage("Summarize this page for me")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                          onClick={() => sendQuickMessage("Summarise this page for me in a clear, concise way")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                          aria-label="Summarise this page"
                         >
-                          Summarize this page
+                          📄 Summarise page
                         </button>
                         <button
                           type="button"
-                          onClick={() => sendQuickMessage("What is this website about?")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                          onClick={() => sendQuickMessage("Read out all the menu and navigation options on this page")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                          aria-label="Read out the menu options"
                         >
-                          What is this website about?
+                          🗂️ Menu options
                         </button>
                         <button
                           type="button"
-                          onClick={() => sendQuickMessage("Help me navigate to the main content")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #e5e7eb", cursor: "pointer", textAlign: "left", color: "#374151" }}
+                          onClick={() => sendQuickMessage("Find and list all downloadable files and document links on this page")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                          aria-label="Find downloadable links"
                         >
-                          Navigate to main content
+                          📥 Find downloads
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sendQuickMessage("Read out all the headings on this page to help me understand the structure")}
+                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                          aria-label="Read page headings"
+                        >
+                          📑 Page headings
                         </button>
                       </div>
                     </>

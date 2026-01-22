@@ -310,7 +310,7 @@ export function AccessibilityWidget() {
   // Generate welcome message for when widget opens (user-initiated)
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your request. I can summarize this page, help you navigate, find links, or answer questions about the content.`;
+    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your instructions. I can summarise this page, read out the menu options, find downloadable links, or read the page headings to help you navigate.`;
   }, []);
 
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
@@ -1082,24 +1082,34 @@ export function AccessibilityWidget() {
                       <Accessibility className="h-12 w-12 mb-4 opacity-30" />
                       <p className="font-medium">How can I help you today?</p>
                       <p className="text-sm mt-1">Type your question below</p>
-                      <div className="mt-4 grid gap-2 w-full max-w-[280px]">
+                      <div className="mt-4 grid grid-cols-2 gap-2 w-full max-w-[320px]">
                         <button
-                          onClick={() => sendMessage("Summarize this page for me")}
-                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                          onClick={() => sendMessage("Summarise this page for me in a clear, concise way")}
+                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
+                          aria-label="Summarise this page"
                         >
-                          📄 Summarize this page
+                          📄 Summarise page
                         </button>
                         <button
-                          onClick={() => sendMessage("What is this website about?")}
-                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                          onClick={() => sendMessage("Read out all the menu and navigation options on this page")}
+                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
+                          aria-label="Read out the menu options"
                         >
-                          ❓ What is this website about?
+                          🗂️ Menu options
                         </button>
                         <button
-                          onClick={() => sendMessage("Help me navigate to the pricing section")}
-                          className="px-3 py-2 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left"
+                          onClick={() => sendMessage("Find and list all downloadable files and document links on this page")}
+                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
+                          aria-label="Find downloadable links"
                         >
-                          🧭 Navigate to pricing
+                          📥 Find downloads
+                        </button>
+                        <button
+                          onClick={() => sendMessage("Read out all the headings on this page to help me understand the structure")}
+                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
+                          aria-label="Read page headings"
+                        >
+                          📑 Page headings
                         </button>
                       </div>
                     </>
