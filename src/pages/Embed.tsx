@@ -134,12 +134,12 @@ const Embed = () => {
         <Card>
           <CardHeader>
             <CardTitle>Configuration</CardTitle>
-            <CardDescription>Customize the widget appearance</CardDescription>
+            <CardDescription>Customise the widget appearance</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="color">Primary Color</Label>
+                <Label htmlFor="color">Primary Colour</Label>
                 <div className="flex gap-2">
                   <Input
                     id="color"

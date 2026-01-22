@@ -11,8 +11,8 @@ const steps = [
   {
     number: "02",
     icon: Palette,
-    title: "Customize Your Widget",
-    description: "Match your brand with customizable colors, position, and behavior. Or use our beautiful defaults.",
+    title: "Customise Your Widget",
+    description: "Match your brand with customisable colours, position, and style. Or use our beautiful defaults.",
     code: null,
   },
   {

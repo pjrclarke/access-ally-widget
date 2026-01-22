@@ -279,7 +279,7 @@ const AdminApiKeys = () => {
                   </TableCell>
                   <TableCell>
                     {key.companies?.name || (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">None</span>
                     )}
                   </TableCell>
                   <TableCell>

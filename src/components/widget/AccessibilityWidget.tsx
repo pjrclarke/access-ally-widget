@@ -901,7 +901,7 @@ export function AccessibilityWidget() {
         )}
       </button>
       <span id="a11y-widget-desc" className="sr-only">
-        AI-powered accessibility assistant. Helps navigate pages, summarize content, and adjust visual settings.
+        AI-powered accessibility assistant. Helps navigate pages, summarise content, and adjust visual settings.
       </span>
 
       {/* Chat Panel */}
@@ -1064,78 +1064,66 @@ export function AccessibilityWidget() {
 
             {/* Messages */}
             <div 
-              className="h-[240px] overflow-y-auto p-4 space-y-4"
+              className="h-[280px] overflow-y-auto p-4 space-y-4"
               role="log"
               aria-live="polite"
               aria-label="Chat messages"
             >
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground">
-                  {chatMode === "voice" && isVoiceSupported ? (
-                    <>
-                      <Volume2 className="h-12 w-12 mb-4 text-primary animate-pulse" />
-                      <p className="font-medium">Preparing your assistant...</p>
-                      <p className="text-sm mt-1">Please wait while I introduce myself</p>
-                    </>
-                  ) : (
-                    <>
-                      <Accessibility className="h-12 w-12 mb-4 opacity-30" />
-                      <p className="font-medium">How can I help you today?</p>
-                      <p className="text-sm mt-1">Type your question below</p>
-                      <div className="mt-4 grid grid-cols-2 gap-2 w-full max-w-[320px]">
-                        <button
-                          onClick={() => sendMessage("Summarise this page for me in a clear, concise way")}
-                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
-                          aria-label="Summarise this page"
-                        >
-                          📄 Summarise page
-                        </button>
-                        <button
-                          onClick={() => sendMessage("Read out all the menu and navigation options on this page")}
-                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
-                          aria-label="Read out the menu options"
-                        >
-                          🗂️ Menu options
-                        </button>
-                        <button
-                          onClick={() => sendMessage("Find and list all downloadable files and document links on this page")}
-                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
-                          aria-label="Find downloadable links"
-                        >
-                          📥 Find downloads
-                        </button>
-                        <button
-                          onClick={() => sendMessage("Read out all the headings on this page to help me understand the structure")}
-                          className="px-3 py-2.5 text-sm rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-left font-medium border border-border"
-                          aria-label="Read page headings"
-                        >
-                          📑 Page headings
-                        </button>
-                      </div>
-                    </>
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex",
+                    message.role === "user" ? "justify-end" : "justify-start"
                   )}
-                </div>
-              ) : (
-                messages.map((message, index) => (
+                >
                   <div
-                    key={index}
                     className={cn(
-                      "flex",
-                      message.role === "user" ? "justify-end" : "justify-start"
+                      "max-w-[85%] rounded-2xl px-4 py-2.5",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-secondary text-secondary-foreground rounded-bl-md"
                     )}
                   >
-                    <div
-                      className={cn(
-                        "max-w-[85%] rounded-2xl px-4 py-2.5",
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-md"
-                          : "bg-secondary text-secondary-foreground rounded-bl-md"
-                      )}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   </div>
-                ))
+                </div>
+              ))}
+              {/* Quick action buttons - shown after welcome message */}
+              {messages.length === 1 && messages[0].role === "assistant" && !isLoading && (
+                <div className="flex flex-col items-center pt-2">
+                  <p className="text-xs text-muted-foreground mb-2">Quick actions:</p>
+                  <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
+                    <button
+                      onClick={() => sendMessage("Summarise this page for me in a clear, concise way")}
+                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                      aria-label="Summarise this page"
+                    >
+                      📄 Summarise page
+                    </button>
+                    <button
+                      onClick={() => sendMessage("Read out all the menu and navigation options on this page")}
+                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                      aria-label="Read out the menu options"
+                    >
+                      🗂️ Menu options
+                    </button>
+                    <button
+                      onClick={() => sendMessage("Find and list all downloadable files and document links on this page")}
+                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                      aria-label="Find downloadable links"
+                    >
+                      📥 Find downloads
+                    </button>
+                    <button
+                      onClick={() => sendMessage("Read out all the headings on this page to help me understand the structure")}
+                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                      aria-label="Read page headings"
+                    >
+                      📑 Page headings
+                    </button>
+                  </div>
+                </div>
               )}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
