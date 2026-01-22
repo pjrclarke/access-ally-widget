@@ -20,7 +20,7 @@ const features = [
   },
   {
     icon: FileText,
-    title: "Content Summarization",
+    title: "Content Summarisation",
     description: "Get AI-powered summaries of any page or section. Understand content faster and easier.",
     color: "accent",
   },

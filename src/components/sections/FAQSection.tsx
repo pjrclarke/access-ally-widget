@@ -20,15 +20,15 @@ const faqs = [
   },
   {
     question: "What's included in the 'lifetime updates'?",
-    answer: "Professional and Enterprise licenses include all future updates and improvements to the widget at no additional cost. This includes new features, AI model improvements, language additions, and security updates—forever.",
+    answer: "Professional and Enterprise licences include all future updates and improvements to the widget at no additional cost. This includes new features, AI model improvements, language additions, and security updates, forever.",
   },
   {
-    question: "Can I customize the widget's appearance?",
-    answer: "Absolutely! You can customize the button color, position (any corner), size, and even the icon. Professional and Enterprise plans allow full white-labeling, including custom branding and removing our 'Powered by' badge.",
+    question: "Can I customise the widget's appearance?",
+    answer: "Absolutely! You can customise the button colour, position (any corner), size, and even the icon. Professional and Enterprise plans allow full white-labelling, including custom branding and removing our 'Powered by' badge.",
   },
   {
-    question: "How does the one-time license work?",
-    answer: "When you purchase a license, you receive a unique license key that activates the widget on your domain(s). There are no recurring fees—you pay once and use the widget forever. Different plans allow different numbers of domains.",
+    question: "How does the one-time licence work?",
+    answer: "When you purchase a licence, you receive a unique licence key that activates the widget on your domain(s). There are no recurring fees. You pay once and use the widget forever. Different plans allow different numbers of domains.",
   },
   {
     question: "Do you offer refunds?",

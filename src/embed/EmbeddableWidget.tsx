@@ -1228,63 +1228,51 @@ export function EmbeddableWidget({
               )}
             </div>
 
-            <div style={{ ...styles.messages, height: "220px" }} role="log" aria-live="polite" aria-label="Chat messages">
-              {messages.length === 0 ? (
-                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", color: "#374151", padding: "20px" }}>
-                  {chatMode === "voice" && isSpeechRecognitionSupported ? (
-                    <>
-                      <Volume2 size={48} color={primaryColor} style={{ marginBottom: "16px" }} aria-hidden="true" />
-                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>Preparing your assistant...</p>
-                      <p style={{ fontSize: "13px", color: "#4b5563" }}>Please wait while I introduce myself</p>
-                    </>
-                  ) : (
-                    <>
-                      <Accessibility size={48} color="#d1d5db" style={{ marginBottom: "16px" }} aria-hidden="true" />
-                      <p style={{ marginBottom: "8px", fontWeight: 500 }}>How can I help you today?</p>
-                      <p style={{ fontSize: "13px", color: "#4b5563", marginBottom: "16px" }}>Type your question below</p>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "320px" }}>
-                        <button
-                          type="button"
-                          onClick={() => sendQuickMessage("Summarise this page for me in a clear, concise way")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                          aria-label="Summarise this page"
-                        >
-                          📄 Summarise page
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => sendQuickMessage("Read out all the menu and navigation options on this page")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                          aria-label="Read out the menu options"
-                        >
-                          🗂️ Menu options
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => sendQuickMessage("Find and list all downloadable files and document links on this page")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                          aria-label="Find downloadable links"
-                        >
-                          📥 Find downloads
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => sendQuickMessage("Read out all the headings on this page to help me understand the structure")}
-                          style={{ padding: "10px 12px", fontSize: "13px", borderRadius: "8px", background: "#f3f4f6", border: "1px solid #d1d5db", cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                          aria-label="Read page headings"
-                        >
-                          📑 Page headings
-                        </button>
-                      </div>
-                    </>
-                  )}
+            <div style={{ ...styles.messages, height: "260px" }} role="log" aria-live="polite" aria-label="Chat messages">
+              {messages.map((msg, i) => (
+                <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
+                  {msg.content}
                 </div>
-              ) : (
-                messages.map((msg, i) => (
-                  <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
-                    {msg.content}
+              ))}
+              {/* Quick action buttons - shown after welcome message */}
+              {messages.length === 1 && messages[0].role === "assistant" && !isLoading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "8px" }}>
+                  <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "8px" }}>Quick actions:</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "300px" }}>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Summarise this page for me in a clear, concise way")}
+                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                      aria-label="Summarise this page"
+                    >
+                      📄 Summarise page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Read out all the menu and navigation options on this page")}
+                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                      aria-label="Read out the menu options"
+                    >
+                      🗂️ Menu options
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Find and list all downloadable files and document links on this page")}
+                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                      aria-label="Find downloadable links"
+                    >
+                      📥 Find downloads
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => sendQuickMessage("Read out all the headings on this page to help me understand the structure")}
+                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                      aria-label="Read page headings"
+                    >
+                      📑 Page headings
+                    </button>
                   </div>
-                ))
+                </div>
               )}
               {isLoading && messages.length > 0 && (
                 <div style={styles.assistantMessage()}>

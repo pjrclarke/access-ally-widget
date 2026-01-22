@@ -30,7 +30,7 @@ export function HeroSection() {
             </h1>
 
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-6 sm:mb-8 max-w-xl animate-fade-in-up" style={{ animationDelay: "0.1s" }}>
-              An AI-powered widget that adds voice navigation, content summarization, and visual adjustments to help more users access your content.
+              An AI-powered widget that adds voice navigation, content summarisation, and visual adjustments to help more users access your content.
             </p>
 
             {/* CTA Buttons */}
