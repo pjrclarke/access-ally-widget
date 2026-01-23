@@ -129,6 +129,82 @@ function stripMarkdown(text: string): string {
     .replace(/\n/g, ' ')                  // Single newlines to spaces
     .trim();
 }
+
+// Strip [ACTION:...] markers from content for display
+function stripActionMarkers(text: string): string {
+  return text.replace(/\[ACTION:\w+:[^\]]+\]/g, '').trim();
+}
+
+// Generate contextual action suggestions based on assistant's last message
+function getContextualActions(lastMessage: string): { label: string; prompt: string }[] {
+  const lowerMsg = lastMessage.toLowerCase();
+  
+  // Default actions that are always useful
+  const defaultActions = [
+    { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
+    { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
+    { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
+    { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
+  ];
+  
+  // Contextual actions based on what the AI just said
+  if (lowerMsg.includes("heading") || lowerMsg.includes("section") || lowerMsg.includes("structure")) {
+    return [
+      { label: "🔍 Go to section", prompt: "Take me to the first main section of this page" },
+      { label: "📖 Read section", prompt: "Read out the content of the main section" },
+      { label: "⬇️ Next heading", prompt: "Take me to the next heading on this page" },
+      { label: "🏠 Back to top", prompt: "Take me back to the top of the page" },
+    ];
+  }
+  
+  if (lowerMsg.includes("menu") || lowerMsg.includes("navigation") || lowerMsg.includes("link")) {
+    return [
+      { label: "🏠 Go to home", prompt: "Click on the home or main page link" },
+      { label: "📞 Find contact", prompt: "Find and click the contact page link" },
+      { label: "ℹ️ About page", prompt: "Find and click the about page link" },
+      { label: "🔙 Go back", prompt: "Go back to the previous page" },
+    ];
+  }
+  
+  if (lowerMsg.includes("download") || lowerMsg.includes("file") || lowerMsg.includes("document")) {
+    return [
+      { label: "📥 Download first", prompt: "Click on the first download link" },
+      { label: "📋 List all files", prompt: "List all the files available for download with their formats" },
+      { label: "🔍 Find PDFs", prompt: "Find any PDF documents on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+    ];
+  }
+  
+  if (lowerMsg.includes("form") || lowerMsg.includes("input") || lowerMsg.includes("field") || lowerMsg.includes("submit")) {
+    return [
+      { label: "📝 Fill form", prompt: "Help me fill out the form on this page" },
+      { label: "🔍 Required fields", prompt: "What are the required fields in this form?" },
+      { label: "✅ Submit form", prompt: "Submit the form for me" },
+      { label: "🔄 Clear form", prompt: "Clear all the form fields" },
+    ];
+  }
+  
+  if (lowerMsg.includes("button") || lowerMsg.includes("click")) {
+    return [
+      { label: "👆 Click it", prompt: "Click that button for me" },
+      { label: "🔍 All buttons", prompt: "List all the buttons on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
+    ];
+  }
+  
+  if (lowerMsg.includes("image") || lowerMsg.includes("picture") || lowerMsg.includes("photo")) {
+    return [
+      { label: "🖼️ Describe images", prompt: "Describe all the images on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+      { label: "👁️ Hide images", prompt: "Hide all images on this page for easier reading" },
+      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
+    ];
+  }
+  
+  // Return default actions for general responses
+  return defaultActions;
+}
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -566,11 +642,13 @@ export function AccessibilityWidget() {
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
             if (content) {
               assistantContent += content;
+              // Strip action markers for display but keep raw content for execution
+              const displayContent = stripActionMarkers(assistantContent);
               setMessages(prev => {
                 const updated = [...prev];
                 const lastIdx = updated.length - 1;
                 if (updated[lastIdx]?.role === "assistant") {
-                  updated[lastIdx] = { ...updated[lastIdx], content: assistantContent };
+                  updated[lastIdx] = { ...updated[lastIdx], content: displayContent };
                 }
                 return updated;
               });
@@ -1089,39 +1167,23 @@ export function AccessibilityWidget() {
                   </div>
                 </div>
               ))}
-              {/* Quick action buttons - shown after welcome message */}
-              {messages.length === 1 && messages[0].role === "assistant" && !isLoading && (
-                <div className="flex flex-col items-center pt-2">
-                  <p className="text-xs text-muted-foreground mb-2">Quick actions:</p>
+              {/* Contextual action buttons - shown after every AI reply */}
+              {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && (
+                <div className="flex flex-col items-center pt-3 pb-1">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Select from the following actions, or type what you'd like to do:
+                  </p>
                   <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
-                    <button
-                      onClick={() => sendMessage("Summarise this page for me in a clear, concise way")}
-                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
-                      aria-label="Summarise this page"
-                    >
-                      📄 Summarise page
-                    </button>
-                    <button
-                      onClick={() => sendMessage("Read out all the menu and navigation options on this page")}
-                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
-                      aria-label="Read out the menu options"
-                    >
-                      🗂️ Menu options
-                    </button>
-                    <button
-                      onClick={() => sendMessage("Find and list all downloadable files and document links on this page")}
-                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
-                      aria-label="Find downloadable links"
-                    >
-                      📥 Find downloads
-                    </button>
-                    <button
-                      onClick={() => sendMessage("Read out all the headings on this page to help me understand the structure")}
-                      className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
-                      aria-label="Read page headings"
-                    >
-                      📑 Page headings
-                    </button>
+                    {getContextualActions(messages[messages.length - 1]?.content || "").map((action, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => sendMessage(action.prompt)}
+                        className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                        aria-label={action.label}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

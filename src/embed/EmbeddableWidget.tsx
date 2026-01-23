@@ -119,6 +119,82 @@ function stripForSpeech(text: string): string {
     .trim();
 }
 
+// Strip [ACTION:...] markers from content for display
+function stripActionMarkers(text: string): string {
+  return text.replace(/\[ACTION:\w+:[^\]]+\]/g, '').trim();
+}
+
+// Generate contextual action suggestions based on assistant's last message
+function getContextualActions(lastMessage: string): { label: string; prompt: string }[] {
+  const lowerMsg = lastMessage.toLowerCase();
+  
+  // Default actions that are always useful
+  const defaultActions = [
+    { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
+    { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
+    { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
+    { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
+  ];
+  
+  // Contextual actions based on what the AI just said
+  if (lowerMsg.includes("heading") || lowerMsg.includes("section") || lowerMsg.includes("structure")) {
+    return [
+      { label: "🔍 Go to section", prompt: "Take me to the first main section of this page" },
+      { label: "📖 Read section", prompt: "Read out the content of the main section" },
+      { label: "⬇️ Next heading", prompt: "Take me to the next heading on this page" },
+      { label: "🏠 Back to top", prompt: "Take me back to the top of the page" },
+    ];
+  }
+  
+  if (lowerMsg.includes("menu") || lowerMsg.includes("navigation") || lowerMsg.includes("link")) {
+    return [
+      { label: "🏠 Go to home", prompt: "Click on the home or main page link" },
+      { label: "📞 Find contact", prompt: "Find and click the contact page link" },
+      { label: "ℹ️ About page", prompt: "Find and click the about page link" },
+      { label: "🔙 Go back", prompt: "Go back to the previous page" },
+    ];
+  }
+  
+  if (lowerMsg.includes("download") || lowerMsg.includes("file") || lowerMsg.includes("document")) {
+    return [
+      { label: "📥 Download first", prompt: "Click on the first download link" },
+      { label: "📋 List all files", prompt: "List all the files available for download with their formats" },
+      { label: "🔍 Find PDFs", prompt: "Find any PDF documents on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+    ];
+  }
+  
+  if (lowerMsg.includes("form") || lowerMsg.includes("input") || lowerMsg.includes("field") || lowerMsg.includes("submit")) {
+    return [
+      { label: "📝 Fill form", prompt: "Help me fill out the form on this page" },
+      { label: "🔍 Required fields", prompt: "What are the required fields in this form?" },
+      { label: "✅ Submit form", prompt: "Submit the form for me" },
+      { label: "🔄 Clear form", prompt: "Clear all the form fields" },
+    ];
+  }
+  
+  if (lowerMsg.includes("button") || lowerMsg.includes("click")) {
+    return [
+      { label: "👆 Click it", prompt: "Click that button for me" },
+      { label: "🔍 All buttons", prompt: "List all the buttons on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
+    ];
+  }
+  
+  if (lowerMsg.includes("image") || lowerMsg.includes("picture") || lowerMsg.includes("photo")) {
+    return [
+      { label: "🖼️ Describe images", prompt: "Describe all the images on this page" },
+      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
+      { label: "👁️ Hide images", prompt: "Hide all images on this page for easier reading" },
+      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
+    ];
+  }
+  
+  // Return default actions for general responses
+  return defaultActions;
+}
+
 // Extract clean domain name (e.g., lovable.dev, google.com)
 function getCleanDomain(): string {
   const hostname = window.location.hostname.replace('www.', '');
@@ -1009,8 +1085,8 @@ export function EmbeddableWidget({
                 const content = parsed.choices?.[0]?.delta?.content || "";
                 if (content) {
                   fullResponse += content;
-                  // Clean markdown from display as well
-                  const cleanedForDisplay = stripForSpeech(fullResponse);
+                  // Clean markdown and action markers from display
+                  const cleanedForDisplay = stripActionMarkers(stripForSpeech(fullResponse));
                   setMessages((prev) => {
                     const updated = [...prev];
                     updated[updated.length - 1] = { role: "assistant", content: cleanedForDisplay };
@@ -1234,43 +1310,24 @@ export function EmbeddableWidget({
                   {msg.content}
                 </div>
               ))}
-              {/* Quick action buttons - shown after welcome message */}
-              {messages.length === 1 && messages[0].role === "assistant" && !isLoading && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "8px" }}>
-                  <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "8px" }}>Quick actions:</p>
+              {/* Contextual action buttons - shown after every AI reply */}
+              {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "12px", paddingBottom: "4px" }}>
+                  <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "8px" }}>
+                    Select from the following actions, or type what you'd like to do:
+                  </p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "300px" }}>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Summarise this page for me in a clear, concise way")}
-                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                      aria-label="Summarise this page"
-                    >
-                      📄 Summarise page
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Read out all the menu and navigation options on this page")}
-                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                      aria-label="Read out the menu options"
-                    >
-                      🗂️ Menu options
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Find and list all downloadable files and document links on this page")}
-                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                      aria-label="Find downloadable links"
-                    >
-                      📥 Find downloads
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendQuickMessage("Read out all the headings on this page to help me understand the structure")}
-                      style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                      aria-label="Read page headings"
-                    >
-                      📑 Page headings
-                    </button>
+                    {getContextualActions(messages[messages.length - 1]?.content || "").map((action, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => sendQuickMessage(action.prompt)}
+                        style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                        aria-label={action.label}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}

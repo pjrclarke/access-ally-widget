@@ -12,7 +12,7 @@ const faqs = [
   },
   {
     question: "Will this slow down my website?",
-    answer: "Not at all! Our widget is less than 50KB and loads asynchronously, meaning it doesn't block any of your page content from loading. We've optimized every aspect for performance—your Lighthouse scores won't be affected.",
+    answer: "Not at all! Our widget is less than 50KB and loads asynchronously, meaning it doesn't block any of your page content from loading. We've optimised every aspect for performance, so your Lighthouse scores won't be affected.",
   },
   {
     question: "Is this WCAG compliant?",
