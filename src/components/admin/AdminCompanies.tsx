@@ -9,8 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
-
+import { Plus, Pencil, Trash2, Loader2, Building2, Eye } from "lucide-react";
+import CompanyDashboard from "./CompanyDashboard";
 type SubscriptionPlan = "free" | "starter" | "pro" | "enterprise" | "admin";
 type SubscriptionStatus = "active" | "cancelled" | "past_due" | "trialing";
 
@@ -39,6 +39,7 @@ const AdminCompanies = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -165,6 +166,11 @@ const AdminCompanies = () => {
       default: return "outline";
     }
   };
+
+  // Show dashboard if a company is selected
+  if (selectedCompany) {
+    return <CompanyDashboard company={selectedCompany} onBack={() => setSelectedCompany(null)} />;
+  }
 
   return (
     <Card>
@@ -325,7 +331,16 @@ const AdminCompanies = () => {
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => setSelectedCompany(company)}
+                      title="View Dashboard"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => openEditDialog(company)}
+                      title="Edit"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -333,6 +348,7 @@ const AdminCompanies = () => {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(company.id)}
+                      title="Delete"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
