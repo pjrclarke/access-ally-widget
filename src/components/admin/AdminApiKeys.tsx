@@ -200,14 +200,14 @@ const AdminApiKeys = () => {
                 <div className="space-y-2">
                   <Label htmlFor="company">Company (Optional)</Label>
                   <Select
-                    value={formData.company_id}
-                    onValueChange={(value) => setFormData({ ...formData, company_id: value })}
+                    value={formData.company_id || "none"}
+                    onValueChange={(value) => setFormData({ ...formData, company_id: value === "none" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select company" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No company</SelectItem>
+                      <SelectItem value="none">No company</SelectItem>
                       {companies.map((company) => (
                         <SelectItem key={company.id} value={company.id}>
                           {company.name}
