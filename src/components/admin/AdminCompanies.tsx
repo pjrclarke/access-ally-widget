@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
 
-type SubscriptionPlan = "free" | "starter" | "pro" | "enterprise";
+type SubscriptionPlan = "free" | "starter" | "pro" | "enterprise" | "admin";
 type SubscriptionStatus = "active" | "cancelled" | "past_due" | "trialing";
 
 interface Company {
@@ -31,6 +31,7 @@ const planLimits: Record<SubscriptionPlan, number> = {
   starter: 10000,
   pro: 100000,
   enterprise: 1000000,
+  admin: 999999999, // Unlimited
 };
 
 const AdminCompanies = () => {
@@ -147,6 +148,7 @@ const AdminCompanies = () => {
 
   const getPlanBadgeVariant = (plan: SubscriptionPlan) => {
     switch (plan) {
+      case "admin": return "destructive";
       case "enterprise": return "default";
       case "pro": return "default";
       case "starter": return "secondary";
@@ -231,6 +233,7 @@ const AdminCompanies = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="admin">Admin (Unlimited)</SelectItem>
                         <SelectItem value="free">Free (1k/mo)</SelectItem>
                         <SelectItem value="starter">Starter (10k/mo)</SelectItem>
                         <SelectItem value="pro">Pro (100k/mo)</SelectItem>

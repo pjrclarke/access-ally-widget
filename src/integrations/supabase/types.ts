@@ -233,7 +233,7 @@ export type Database = {
       }
     }
     Enums: {
-      subscription_plan: "free" | "starter" | "pro" | "enterprise"
+      subscription_plan: "free" | "starter" | "pro" | "enterprise" | "admin"
       subscription_status: "active" | "cancelled" | "past_due" | "trialing"
     }
     CompositeTypes: {
@@ -362,7 +362,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      subscription_plan: ["free", "starter", "pro", "enterprise"],
+      subscription_plan: ["free", "starter", "pro", "enterprise", "admin"],
       subscription_status: ["active", "cancelled", "past_due", "trialing"],
     },
   },
