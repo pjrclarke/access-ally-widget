@@ -270,6 +270,7 @@ export function AccessibilityWidget() {
   // Check if running on Lovable preview/app domain (internal demo mode)
   const isInternalDemo = typeof window !== "undefined" && 
     (window.location.hostname.includes("lovable.app") || 
+     window.location.hostname.includes("lovableproject.com") ||
      window.location.hostname.includes("localhost") ||
      window.location.hostname.includes("127.0.0.1"));
 
