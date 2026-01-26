@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Mic, MessageSquare, Volume2 } from "lucide-react";
+import { ArrowRight, Mic, MessageSquare, Volume2 } from "lucide-react";
 
 export function HeroSection() {
   return (
@@ -35,13 +35,17 @@ export function HeroSection() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
-              <Button size="lg" className="bg-gradient-primary hover:opacity-90 transition-opacity group w-full sm:w-auto">
+              <Button 
+                size="lg" 
+                className="bg-gradient-primary hover:opacity-90 transition-opacity group w-full sm:w-auto"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('openA11yWidget', { 
+                    detail: { message: "get started" } 
+                  }));
+                }}
+              >
                 Get Started
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-              <Button size="lg" variant="outline" className="group w-full sm:w-auto">
-                <Play className="mr-2 h-4 w-4" />
-                Watch Demo
               </Button>
             </div>
           </div>
