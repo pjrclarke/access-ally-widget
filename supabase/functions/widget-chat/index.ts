@@ -100,6 +100,13 @@ serve(async (req) => {
     const apiKey = req.headers.get("x-api-key");
     const origin = req.headers.get("origin");
 
+    // Allow internal demo mode for Lovable preview domains
+    const isInternalDemo = apiKey === "INTERNAL_DEMO" && origin && (
+      origin.includes("lovable.app") || 
+      origin.includes("localhost") || 
+      origin.includes("127.0.0.1")
+    );
+
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: "Missing API key. Include 'x-api-key' header." }),
@@ -107,35 +114,39 @@ serve(async (req) => {
       );
     }
 
-    // Validate the API key
-    const validation = await validateApiKey(apiKey, origin);
-    if (!validation.valid) {
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Skip validation for internal demo mode
+    if (!isInternalDemo) {
+      // Validate the API key
+      const validation = await validateApiKey(apiKey, origin);
+      if (!validation.valid) {
+        return new Response(
+          JSON.stringify({ error: validation.error }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check rate limit
+      const rateLimit = checkRateLimit(apiKey);
+      if (!rateLimit.allowed) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Rate limit exceeded. Please try again in a moment.",
+            retryAfter: Math.ceil(rateLimit.resetIn / 1000)
+          }),
+          { 
+            status: 429, 
+            headers: { 
+              ...corsHeaders, 
+              "Content-Type": "application/json",
+              "X-RateLimit-Limit": RATE_LIMIT.toString(),
+              "X-RateLimit-Remaining": "0",
+              "X-RateLimit-Reset": Math.ceil(rateLimit.resetIn / 1000).toString()
+            } 
+          }
+        );
+      }
     }
 
-    // Check rate limit
-    const rateLimit = checkRateLimit(apiKey);
-    if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({ 
-          error: "Rate limit exceeded. Please try again in a moment.",
-          retryAfter: Math.ceil(rateLimit.resetIn / 1000)
-        }),
-        { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
-            "Content-Type": "application/json",
-            "X-RateLimit-Limit": RATE_LIMIT.toString(),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": Math.ceil(rateLimit.resetIn / 1000).toString()
-          } 
-        }
-      );
-    }
 
     const { message, pageContent, interactiveElements, pageUrl } = await req.json();
     
