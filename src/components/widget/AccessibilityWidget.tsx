@@ -255,8 +255,20 @@ export function AccessibilityWidget() {
   const srAnnouncementRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Fetch widget API key on mount
+  // Check if running on Lovable preview/app domain (internal demo mode)
+  const isInternalDemo = typeof window !== "undefined" && 
+    (window.location.hostname.includes("lovable.app") || 
+     window.location.hostname.includes("localhost") ||
+     window.location.hostname.includes("127.0.0.1"));
+
+  // Fetch widget API key on mount (only for external embedded usage)
   useEffect(() => {
+    // Skip API key fetch for internal demo - we'll use a special header
+    if (isInternalDemo) {
+      setWidgetApiKey("INTERNAL_DEMO");
+      return;
+    }
+    
     const fetchApiKey = async () => {
       try {
         const { data, error } = await supabase
@@ -274,7 +286,7 @@ export function AccessibilityWidget() {
       }
     };
     fetchApiKey();
-  }, []);
+  }, [isInternalDemo]);
   
   // Accessibility audit hook
   const { isScanning, result: auditResult, runAudit, clearResult: clearAuditResult } = useAccessibilityAudit();
