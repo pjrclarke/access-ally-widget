@@ -912,6 +912,28 @@ export function AccessibilityWidget() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [readingGuide, dyslexiaFont, contrastMode, textScale, updateSetting]);
 
+  // Listen for external open widget event (e.g., from "Get Started" button)
+  useEffect(() => {
+    const handleOpenWidget = (e: CustomEvent<{ message?: string }>) => {
+      if (!isOpen) {
+        setIsOpen(true);
+        // Add a "get started" response if the widget was closed
+        if (e.detail?.message === "get started") {
+          const getStartedMessage: Message = {
+            role: "assistant",
+            content: "Ok, let's get started! Here's what you can do now: I can summarise page content, read out menu options, find downloadable files, help you navigate to sections, or click links for you. Just ask me what you need!",
+          };
+          setMessages(prev => [...prev, getStartedMessage]);
+          setHasShownWelcome(true);
+        }
+      }
+      // If already open, do nothing (leave it open)
+    };
+    
+    window.addEventListener("openA11yWidget", handleOpenWidget as EventListener);
+    return () => window.removeEventListener("openA11yWidget", handleOpenWidget as EventListener);
+  }, [isOpen]);
+
   return (
     <>
       {/* SVG Filters for Color Blindness Correction */}
