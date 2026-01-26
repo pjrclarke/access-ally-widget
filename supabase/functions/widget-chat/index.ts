@@ -161,8 +161,16 @@ Page: ${pageUrl || "this page"}
 Content: ${pageContent || "Not available"}
 Clickable elements: ${interactiveElements || "None found"}
 
-ACTIONS (include when users want to interact):
-[ACTION:CLICK:element] [ACTION:SCROLL:section] [ACTION:FOCUS:field] [ACTION:FILL:field:value]
+ACTIONS (include ONLY when you will perform an action):
+[ACTION:CLICK:element_text] - to click a button or link
+[ACTION:SCROLL:section_name] - to scroll to a section
+[ACTION:FOCUS:field_name] - to focus on a form field
+[ACTION:FILL:field_name:value] - to fill in a form field
+
+When the user asks you to click something, navigate somewhere, or perform an action:
+1. Find the matching element in the clickable elements list above
+2. Include the appropriate [ACTION:...] tag with the exact element text
+3. Briefly confirm what you are doing
 
 CAPABILITIES YOU CAN HELP WITH:
 - Summarise page content clearly and concisely
@@ -170,17 +178,19 @@ CAPABILITIES YOU CAN HELP WITH:
 - Find and list downloadable files or document links
 - Read page headings to explain structure
 - Help navigate to specific sections
+- Click links and buttons when asked
 - Answer questions about content
 
-RULES:
+STRICT RULES:
 - Reply in 1-3 short sentences max, be concise
-- No markdown, asterisks, bullets, or formatting
+- NEVER use any markdown, asterisks, bullets, or formatting
+- NEVER output JSON, curly braces {}, square brackets [] (except for [ACTION:...] tags)
 - Sound natural, warm and helpful
 - Use everyday words, avoid jargon
-- For lists (like menu items or headings), speak them naturally as a sentence
-- For downloads, if you find links with download attributes or PDFs/documents, list them clearly
+- For lists (like menu items), speak them naturally in a sentence
 - If you cannot find what the user asked for, say so honestly
-- For actions, briefly confirm what you're doing`;
+- When performing actions, briefly confirm what you are clicking/doing`;
+
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

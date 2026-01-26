@@ -130,9 +130,21 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-// Strip [ACTION:...] markers from content for display
+// Strip [ACTION:...] markers and any stray JSON-like artifacts from content for display
 function stripActionMarkers(text: string): string {
-  return text.replace(/\[ACTION:\w+:[^\]]+\]/g, '').trim();
+  return text
+    // Remove [ACTION:TYPE:target] markers
+    .replace(/\[ACTION:\w+:[^\]]*\]/gi, '')
+    // Remove common AI output artifacts like }] or [{ or stray brackets
+    .replace(/^\s*[\[\{}\]]+\s*/g, '')
+    .replace(/\s*[\[\{}\]]+\s*$/g, '')
+    // Remove patterns like }] or [{ in the middle of text
+    .replace(/\s*[\}\]]+\s*[\[\{]*\s*/g, ' ')
+    // Remove em-dashes that might appear
+    .replace(/—/g, ' - ')
+    // Clean up multiple spaces
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // Generate contextual action suggestions based on assistant's last message
