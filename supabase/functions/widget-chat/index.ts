@@ -103,6 +103,7 @@ serve(async (req) => {
     // Allow internal demo mode for Lovable preview domains
     const isInternalDemo = apiKey === "INTERNAL_DEMO" && origin && (
       origin.includes("lovable.app") || 
+      origin.includes("lovableproject.com") ||
       origin.includes("localhost") || 
       origin.includes("127.0.0.1")
     );
