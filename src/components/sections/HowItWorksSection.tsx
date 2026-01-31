@@ -1,30 +1,37 @@
-import { Code, Palette, Rocket } from "lucide-react";
+import { Code, Palette, Rocket, Key, Volume2, Layout } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const steps = [
   {
     number: "01",
-    icon: Code,
-    title: "Add One Line of Code",
-    description: "Copy and paste a single script tag into your website. No complex setup or configuration needed.",
-    code: '<script src="https://cdn.accessibilityai.com/widget.js" data-key="YOUR_KEY"></script>',
+    icon: Key,
+    title: "Create Your API Key",
+    description: "Sign up and generate your unique API key in seconds. Domain-lock it for security.",
+    code: null,
+    showDashboardPreview: false,
   },
   {
     number: "02",
     icon: Palette,
     title: "Customise Your Widget",
-    description: "Match your brand with customisable colours, position, and style. Or use our beautiful defaults.",
+    description: "Set your brand colours, widget position, and voice settings from your dashboard.",
     code: null,
+    showDashboardPreview: true,
   },
   {
     number: "03",
-    icon: Rocket,
-    title: "Launch & Delight Users",
-    description: "Your website is now accessible to everyone. Users can navigate by voice, ask questions, and more.",
-    code: null,
+    icon: Code,
+    title: "Add One Line of Code",
+    description: "Copy and paste your personalised embed code. That's it—you're live!",
+    code: '<script src="https://cdn.accessibilityai.com/widget.js" data-key="YOUR_KEY"></script>',
+    showDashboardPreview: false,
   },
 ];
 
 export function HowItWorksSection() {
+  const navigate = useNavigate();
+
   return (
     <section id="how-it-works" className="py-12 md:py-32 bg-secondary/30">
       <div className="container px-4 sm:px-6">
@@ -35,7 +42,7 @@ export function HowItWorksSection() {
             <span className="text-gradient-primary">Three Simple Steps</span>
           </h2>
           <p className="text-base md:text-lg text-muted-foreground">
-            Adding accessibility to your website has never been easier. No coding expertise required.
+            Adding accessibility to your website has never been easier. Sign up and customise in minutes.
           </p>
         </div>
 
@@ -80,19 +87,78 @@ export function HowItWorksSection() {
                       </div>
                     )}
 
-                    {index === 1 && (
-                      <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-3 md:mt-4">
-                        <div className="p-2 sm:p-3 rounded-lg border border-border bg-card text-center">
-                          <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-primary mx-auto mb-1 sm:mb-2" />
-                          <span className="text-[10px] sm:text-xs text-muted-foreground">Brand Color</span>
+                    {/* Dashboard Preview for Customisation Step */}
+                    {step.showDashboardPreview && (
+                      <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                          <div className="h-3 w-3 rounded-full bg-red-400" />
+                          <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                          <div className="h-3 w-3 rounded-full bg-green-400" />
+                          <span className="ml-2 text-xs text-muted-foreground">Dashboard Preview</span>
                         </div>
-                        <div className="p-2 sm:p-3 rounded-lg border border-border bg-card text-center">
-                          <div className="text-base sm:text-lg mb-0.5 sm:mb-1">↘️</div>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground">Position</span>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {/* Color Picker Preview */}
+                          <div className="p-3 rounded-lg border border-border bg-background">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Palette className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-medium">Brand Colors</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="h-8 w-8 rounded-lg bg-primary border-2 border-primary-foreground/20" />
+                              <div className="h-8 w-8 rounded-lg bg-accent border-2 border-primary-foreground/20" />
+                            </div>
+                          </div>
+
+                          {/* Position Preview */}
+                          <div className="p-3 rounded-lg border border-border bg-background">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Layout className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-medium">Position</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <div className="flex-1 h-8 rounded border border-border relative">
+                                <div className="absolute bottom-1 right-1 h-3 w-3 rounded-full bg-primary" />
+                              </div>
+                              <div className="flex-1 h-8 rounded border border-border/50 relative opacity-50">
+                                <div className="absolute bottom-1 left-1 h-3 w-3 rounded-full bg-muted" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Voice Preview */}
+                          <div className="p-3 rounded-lg border border-border bg-background">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Volume2 className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-medium">Voice</span>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div className="h-full w-3/5 bg-primary rounded-full" />
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">Rate: 1.0x</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="p-2 sm:p-3 rounded-lg border border-border bg-card text-center">
-                          <div className="text-base sm:text-lg mb-0.5 sm:mb-1">🔊</div>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground">Voice Style</span>
+
+                        <Button 
+                          size="sm" 
+                          className="w-full mt-4 bg-gradient-primary"
+                          onClick={() => navigate("/auth")}
+                        >
+                          Try the Dashboard
+                        </Button>
+                      </div>
+                    )}
+
+                    {index === 0 && (
+                      <div className="flex items-center gap-3 sm:gap-4 mt-3 md:mt-4 p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                          <Key className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-primary text-sm sm:text-base">Public Key = Secure</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">Domain-locked and rate-limited. Safe to embed.</p>
                         </div>
                       </div>
                     )}
@@ -100,9 +166,7 @@ export function HowItWorksSection() {
                     {index === 2 && (
                       <div className="flex items-center gap-3 sm:gap-4 mt-3 md:mt-4 p-3 sm:p-4 rounded-lg bg-success/10 border border-success/20">
                         <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-success/20 flex items-center justify-center shrink-0">
-                          <svg className="h-4 w-4 sm:h-5 sm:w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
+                          <Rocket className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-success text-sm sm:text-base">You're WCAG 2.1 AA Compliant!</p>
