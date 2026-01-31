@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Accessibility } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { href: "#features", label: "Features" },
@@ -11,6 +13,8 @@ const navLinks = [
 ];
 
 export function Header() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
@@ -50,12 +54,28 @@ export function Header() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" size="sm">
-            Sign In
-          </Button>
-          <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity">
-            Get Started Free
-          </Button>
+          {loading ? null : user ? (
+            <Button 
+              size="sm" 
+              className="bg-gradient-primary hover:opacity-90 transition-opacity"
+              onClick={() => navigate("/dashboard")}
+            >
+              Dashboard
+            </Button>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+              <Button 
+                size="sm" 
+                className="bg-gradient-primary hover:opacity-90 transition-opacity"
+                onClick={() => navigate("/auth")}
+              >
+                Get Started Free
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -94,12 +114,30 @@ export function Header() {
             </a>
           ))}
           <div className="flex flex-col gap-2 pt-4 px-4 border-t border-border mt-2">
-            <Button variant="outline" className="w-full">
-              Sign In
-            </Button>
-            <Button className="w-full bg-gradient-primary hover:opacity-90 transition-opacity">
-              Get Started Free
-            </Button>
+            {loading ? null : user ? (
+              <Button 
+                className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                onClick={() => { setIsMobileMenuOpen(false); navigate("/dashboard"); }}
+              >
+                Dashboard
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => { setIsMobileMenuOpen(false); navigate("/auth"); }}
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                  onClick={() => { setIsMobileMenuOpen(false); navigate("/auth"); }}
+                >
+                  Get Started Free
+                </Button>
+              </>
+            )}
           </div>
         </nav>
       </div>
