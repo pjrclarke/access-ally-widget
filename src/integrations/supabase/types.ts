@@ -176,9 +176,14 @@ export type Database = {
           is_active: boolean
           last_used_at: string | null
           name: string
+          position: string | null
+          primary_color: string | null
           request_count: number
+          secondary_color: string | null
           updated_at: string
           user_id: string | null
+          voice_pitch: number | null
+          voice_rate: number | null
         }
         Insert: {
           api_key: string
@@ -189,9 +194,14 @@ export type Database = {
           is_active?: boolean
           last_used_at?: string | null
           name: string
+          position?: string | null
+          primary_color?: string | null
           request_count?: number
+          secondary_color?: string | null
           updated_at?: string
           user_id?: string | null
+          voice_pitch?: number | null
+          voice_rate?: number | null
         }
         Update: {
           api_key?: string
@@ -202,9 +212,14 @@ export type Database = {
           is_active?: boolean
           last_used_at?: string | null
           name?: string
+          position?: string | null
+          primary_color?: string | null
           request_count?: number
+          secondary_color?: string | null
           updated_at?: string
           user_id?: string | null
+          voice_pitch?: number | null
+          voice_rate?: number | null
         }
         Relationships: [
           {
