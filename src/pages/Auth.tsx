@@ -32,7 +32,7 @@ const Auth = () => {
         title: "Welcome back!",
         description: "You have successfully signed in.",
       });
-      navigate("/admin");
+      navigate("/dashboard");
     } catch (error) {
       toast({
         variant: "destructive",

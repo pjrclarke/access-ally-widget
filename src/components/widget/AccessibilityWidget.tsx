@@ -61,6 +61,22 @@ const STORAGE_KEY = "a11y-widget-settings";
 
 type ColorBlindMode = "normal" | "protanopia" | "deuteranopia" | "tritanopia";
 
+interface WidgetCustomization {
+  primary_color: string;
+  secondary_color: string;
+  position: string;
+  voice_rate: number;
+  voice_pitch: number;
+}
+
+const DEFAULT_CUSTOMIZATION: WidgetCustomization = {
+  primary_color: "#6366f1",
+  secondary_color: "#8b5cf6",
+  position: "bottom-right",
+  voice_rate: 1.0,
+  voice_pitch: 1.0,
+};
+
 interface AccessibilitySettings {
   textScale: number;
   lineHeight: number;
@@ -261,6 +277,7 @@ export function AccessibilityWidget() {
   const [emailAddress, setEmailAddress] = useState("");
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [widgetApiKey, setWidgetApiKey] = useState<string>("");
+  const [customization, setCustomization] = useState<WidgetCustomization>(DEFAULT_CUSTOMIZATION);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const widgetButtonRef = useRef<HTMLButtonElement>(null);
@@ -274,31 +291,54 @@ export function AccessibilityWidget() {
      window.location.hostname.includes("localhost") ||
      window.location.hostname.includes("127.0.0.1"));
 
-  // Fetch widget API key on mount (only for external embedded usage)
+  // Fetch widget API key and customization settings on mount
   useEffect(() => {
-    // Skip API key fetch for internal demo - we'll use a special header
+    // For internal demo, use special key and default settings
     if (isInternalDemo) {
       setWidgetApiKey("INTERNAL_DEMO");
+      // Fetch default settings from edge function
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-widget-settings`, {
+        method: "GET",
+        headers: {
+          "x-api-key": "INTERNAL_DEMO",
+          "Content-Type": "application/json",
+        },
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            setCustomization(data);
+          }
+        })
+        .catch(console.warn);
       return;
     }
     
-    const fetchApiKey = async () => {
+    const fetchApiKeyAndSettings = async () => {
       try {
+        // First get the API key
         const { data, error } = await supabase
           .from("widget_api_keys")
-          .select("api_key")
+          .select("api_key, primary_color, secondary_color, position, voice_rate, voice_pitch")
           .eq("is_active", true)
           .limit(1)
           .maybeSingle();
         
         if (data && !error) {
           setWidgetApiKey(data.api_key);
+          setCustomization({
+            primary_color: data.primary_color || DEFAULT_CUSTOMIZATION.primary_color,
+            secondary_color: data.secondary_color || DEFAULT_CUSTOMIZATION.secondary_color,
+            position: data.position || DEFAULT_CUSTOMIZATION.position,
+            voice_rate: data.voice_rate || DEFAULT_CUSTOMIZATION.voice_rate,
+            voice_pitch: data.voice_pitch || DEFAULT_CUSTOMIZATION.voice_pitch,
+          });
         }
       } catch (e) {
-        console.warn("Failed to fetch widget API key:", e);
+        console.warn("Failed to fetch widget settings:", e);
       }
     };
-    fetchApiKey();
+    fetchApiKeyAndSettings();
   }, [isInternalDemo]);
   
   // Accessibility audit hook
@@ -1010,19 +1050,21 @@ export function AccessibilityWidget() {
         ref={widgetButtonRef}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
-          "bg-gradient-primary hover:scale-110 focus:outline-none focus:ring-4 focus:ring-primary/30",
+          "fixed bottom-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+          "hover:scale-110 focus:outline-none focus:ring-4 focus:ring-primary/30",
           "flex items-center justify-center",
+          customization.position === "bottom-left" ? "left-6" : "right-6",
           isOpen && "rotate-90 scale-90"
         )}
+        style={{ backgroundColor: customization.primary_color }}
         aria-label={isOpen ? "Close accessibility assistant" : "Open accessibility assistant. Press Enter to open."}
         aria-expanded={isOpen}
         aria-describedby="a11y-widget-desc"
       >
         {isOpen ? (
-          <X className="h-6 w-6 text-primary-foreground" />
+          <X className="h-6 w-6 text-white" />
         ) : (
-          <Accessibility className="h-6 w-6 text-primary-foreground" />
+          <Accessibility className="h-6 w-6 text-white" />
         )}
       </button>
       <span id="a11y-widget-desc" className="sr-only">
@@ -1032,9 +1074,10 @@ export function AccessibilityWidget() {
       {/* Chat Panel */}
       <div
         className={cn(
-          "fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-48px)]",
+          "fixed bottom-24 z-50 w-[380px] max-w-[calc(100vw-48px)]",
           "rounded-2xl border border-border bg-card shadow-2xl",
-          "transition-all duration-300 origin-bottom-right",
+          "transition-all duration-300",
+          customization.position === "bottom-left" ? "left-6 origin-bottom-left" : "right-6 origin-bottom-right",
           isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4 pointer-events-none"
         )}
         role="dialog"
@@ -1044,8 +1087,11 @@ export function AccessibilityWidget() {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center">
-              <Accessibility className="h-5 w-5 text-primary-foreground" />
+            <div 
+              className="h-10 w-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: customization.primary_color }}
+            >
+              <Accessibility className="h-5 w-5 text-white" />
             </div>
             <div>
               <h2 className="font-semibold text-foreground">Accessibility Assistant</h2>
