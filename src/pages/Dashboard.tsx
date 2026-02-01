@@ -11,6 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Accessibility, 
   Key, 
@@ -23,7 +33,8 @@ import {
   ArrowLeft,
   Loader2,
   Settings,
-  Code
+  Code,
+  LogOut
 } from "lucide-react";
 
 interface ApiKey {
@@ -51,6 +62,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+  
+  // Local state for appearance inputs (to avoid saving on every keystroke)
+  const [localPrimaryColor, setLocalPrimaryColor] = useState("");
+  const [localSecondaryColor, setLocalSecondaryColor] = useState("");
   
   // New key form
   const [newKeyName, setNewKeyName] = useState("");
@@ -68,6 +84,14 @@ const Dashboard = () => {
       fetchApiKeys();
     }
   }, [user]);
+
+  // Sync local color state when selected key changes
+  useEffect(() => {
+    if (selectedKey) {
+      setLocalPrimaryColor(selectedKey.primary_color);
+      setLocalSecondaryColor(selectedKey.secondary_color);
+    }
+  }, [selectedKey?.id]);
 
   const fetchApiKeys = async () => {
     try {
@@ -247,10 +271,27 @@ const Dashboard = () => {
               <span className="font-semibold">Dashboard</span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut}>
+          <Button variant="ghost" size="sm" onClick={() => setShowSignOutDialog(true)}>
+            <LogOut className="mr-2 h-4 w-4" />
             Sign Out
           </Button>
         </div>
+
+        {/* Sign Out Confirmation Dialog */}
+        <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to sign out of your account? You'll need to sign in again to access your dashboard.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={signOut}>Sign Out</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </header>
 
       <main className="container py-8">
@@ -430,13 +471,23 @@ const Dashboard = () => {
                             <Input
                               id="primary-color"
                               type="color"
-                              value={selectedKey.primary_color}
-                              onChange={(e) => updateKeySettings({ primary_color: e.target.value })}
+                              value={localPrimaryColor}
+                              onChange={(e) => setLocalPrimaryColor(e.target.value)}
+                              onBlur={() => {
+                                if (localPrimaryColor !== selectedKey.primary_color) {
+                                  updateKeySettings({ primary_color: localPrimaryColor });
+                                }
+                              }}
                               className="w-12 h-10 p-1 cursor-pointer"
                             />
                             <Input
-                              value={selectedKey.primary_color}
-                              onChange={(e) => updateKeySettings({ primary_color: e.target.value })}
+                              value={localPrimaryColor}
+                              onChange={(e) => setLocalPrimaryColor(e.target.value)}
+                              onBlur={() => {
+                                if (localPrimaryColor !== selectedKey.primary_color) {
+                                  updateKeySettings({ primary_color: localPrimaryColor });
+                                }
+                              }}
                               placeholder="#6366f1"
                               className="flex-1"
                             />
@@ -448,13 +499,23 @@ const Dashboard = () => {
                             <Input
                               id="secondary-color"
                               type="color"
-                              value={selectedKey.secondary_color}
-                              onChange={(e) => updateKeySettings({ secondary_color: e.target.value })}
+                              value={localSecondaryColor}
+                              onChange={(e) => setLocalSecondaryColor(e.target.value)}
+                              onBlur={() => {
+                                if (localSecondaryColor !== selectedKey.secondary_color) {
+                                  updateKeySettings({ secondary_color: localSecondaryColor });
+                                }
+                              }}
                               className="w-12 h-10 p-1 cursor-pointer"
                             />
                             <Input
-                              value={selectedKey.secondary_color}
-                              onChange={(e) => updateKeySettings({ secondary_color: e.target.value })}
+                              value={localSecondaryColor}
+                              onChange={(e) => setLocalSecondaryColor(e.target.value)}
+                              onBlur={() => {
+                                if (localSecondaryColor !== selectedKey.secondary_color) {
+                                  updateKeySettings({ secondary_color: localSecondaryColor });
+                                }
+                              }}
                               placeholder="#8b5cf6"
                               className="flex-1"
                             />
@@ -485,7 +546,7 @@ const Dashboard = () => {
                           <div 
                             className={`absolute bottom-3 ${selectedKey.position === 'bottom-right' ? 'right-3' : 'left-3'} 
                               w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all`}
-                            style={{ backgroundColor: selectedKey.primary_color }}
+                            style={{ backgroundColor: localPrimaryColor }}
                           >
                             <Accessibility className="h-6 w-6 text-white" />
                           </div>
