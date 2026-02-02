@@ -146,11 +146,13 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-// Strip [ACTION:...] markers and any stray JSON-like artifacts from content for display
+// Strip [ACTION:...] and [SUGGESTIONS:...] markers and any stray JSON-like artifacts from content for display
 function stripActionMarkers(text: string): string {
   return text
     // Remove [ACTION:TYPE:target] markers
     .replace(/\[ACTION:\w+:[^\]]*\]/gi, '')
+    // Remove [SUGGESTIONS:...] block
+    .replace(/\[SUGGESTIONS:[^\]]*\]/gi, '')
     // Remove common AI output artifacts like }] or [{ or stray brackets
     .replace(/^\s*[\[\{}\]]+\s*/g, '')
     .replace(/\s*[\[\{}\]]+\s*$/g, '')
@@ -163,75 +165,33 @@ function stripActionMarkers(text: string): string {
     .trim();
 }
 
-// Generate contextual action suggestions based on assistant's last message
-function getContextualActions(lastMessage: string): { label: string; prompt: string }[] {
-  const lowerMsg = lastMessage.toLowerCase();
+// Parse AI-generated suggestions from response
+function parseAISuggestions(text: string): { label: string; prompt: string }[] {
+  const match = text.match(/\[SUGGESTIONS:([^\]]+)\]/);
+  if (!match) return [];
   
-  // Default actions that are always useful
-  const defaultActions = [
+  const suggestionsStr = match[1];
+  const pairs = suggestionsStr.split('||');
+  
+  return pairs
+    .map(pair => {
+      const [label, prompt] = pair.split('|');
+      if (label && prompt) {
+        return { label: label.trim(), prompt: prompt.trim() };
+      }
+      return null;
+    })
+    .filter((s): s is { label: string; prompt: string } => s !== null)
+    .slice(0, 6); // Max 6 suggestions
+}
+
+// Default suggestions for the initial welcome message
+function getDefaultSuggestions(): { label: string; prompt: string }[] {
+  return [
     { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
     { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
-    { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
     { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
   ];
-  
-  // Contextual actions based on what the AI just said
-  if (lowerMsg.includes("heading") || lowerMsg.includes("section") || lowerMsg.includes("structure")) {
-    return [
-      { label: "🔍 Go to section", prompt: "Take me to the first main section of this page" },
-      { label: "📖 Read section", prompt: "Read out the content of the main section" },
-      { label: "⬇️ Next heading", prompt: "Take me to the next heading on this page" },
-      { label: "🏠 Back to top", prompt: "Take me back to the top of the page" },
-    ];
-  }
-  
-  if (lowerMsg.includes("menu") || lowerMsg.includes("navigation") || lowerMsg.includes("link")) {
-    return [
-      { label: "🏠 Go to home", prompt: "Click on the home or main page link" },
-      { label: "📞 Find contact", prompt: "Find and click the contact page link" },
-      { label: "ℹ️ About page", prompt: "Find and click the about page link" },
-      { label: "🔙 Go back", prompt: "Go back to the previous page" },
-    ];
-  }
-  
-  if (lowerMsg.includes("download") || lowerMsg.includes("file") || lowerMsg.includes("document")) {
-    return [
-      { label: "📥 Download first", prompt: "Click on the first download link" },
-      { label: "📋 List all files", prompt: "List all the files available for download with their formats" },
-      { label: "🔍 Find PDFs", prompt: "Find any PDF documents on this page" },
-      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
-    ];
-  }
-  
-  if (lowerMsg.includes("form") || lowerMsg.includes("input") || lowerMsg.includes("field") || lowerMsg.includes("submit")) {
-    return [
-      { label: "📝 Fill form", prompt: "Help me fill out the form on this page" },
-      { label: "🔍 Required fields", prompt: "What are the required fields in this form?" },
-      { label: "✅ Submit form", prompt: "Submit the form for me" },
-      { label: "🔄 Clear form", prompt: "Clear all the form fields" },
-    ];
-  }
-  
-  if (lowerMsg.includes("button") || lowerMsg.includes("click")) {
-    return [
-      { label: "👆 Click it", prompt: "Click that button for me" },
-      { label: "🔍 All buttons", prompt: "List all the buttons on this page" },
-      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
-      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
-    ];
-  }
-  
-  if (lowerMsg.includes("image") || lowerMsg.includes("picture") || lowerMsg.includes("photo")) {
-    return [
-      { label: "🖼️ Describe images", prompt: "Describe all the images on this page" },
-      { label: "📄 Summarise page", prompt: "Summarise this page for me" },
-      { label: "👁️ Hide images", prompt: "Hide all images on this page for easier reading" },
-      { label: "🗂️ Menu options", prompt: "Read out the menu options" },
-    ];
-  }
-  
-  // Return default actions for general responses
-  return defaultActions;
 }
 interface Message {
   role: "user" | "assistant";
@@ -268,6 +228,7 @@ export function AccessibilityWidget() {
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentSuggestions, setCurrentSuggestions] = useState<{ label: string; prompt: string }[]>(getDefaultSuggestions());
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
@@ -734,9 +695,20 @@ export function AccessibilityWidget() {
         });
       }
 
-      // Speak the response if enabled (strip markdown and actions for cleaner speech)
+      // Parse and set AI-generated suggestions
+      const aiSuggestions = parseAISuggestions(assistantContent);
+      if (aiSuggestions.length > 0) {
+        setCurrentSuggestions(aiSuggestions);
+      } else {
+        // Fallback to defaults if AI didn't provide suggestions
+        setCurrentSuggestions(getDefaultSuggestions());
+      }
+
+      // Speak the response if enabled (strip markdown, actions and suggestions for cleaner speech)
       if (isSpeechEnabled && assistantContent) {
-        const cleanContent = stripMarkdown(assistantContent).replace(/\[ACTION:\w+:.+?\]/g, '');
+        const cleanContent = stripMarkdown(assistantContent)
+          .replace(/\[ACTION:\w+:.+?\]/g, '')
+          .replace(/\[SUGGESTIONS:[^\]]*\]/g, '');
         if (cleanContent.trim()) {
           speak(cleanContent);
         }
@@ -1261,13 +1233,16 @@ export function AccessibilityWidget() {
                 </div>
               ))}
               {/* Contextual action buttons - shown after every AI reply */}
-              {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && (
+              {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && currentSuggestions.length > 0 && (
                 <div className="flex flex-col items-center pt-3 pb-1">
                   <p className="text-xs text-muted-foreground mb-2">
-                    Select from the following actions, or type what you'd like to do:
+                    What would you like to do next?
                   </p>
-                  <div className="grid grid-cols-2 gap-2 w-full max-w-[300px]">
-                    {getContextualActions(messages[messages.length - 1]?.content || "").map((action, idx) => (
+                  <div className={cn(
+                    "grid gap-2 w-full",
+                    currentSuggestions.length <= 3 ? "grid-cols-1 max-w-[200px]" : "grid-cols-2 max-w-[300px]"
+                  )}>
+                    {currentSuggestions.map((action, idx) => (
                       <button
                         key={idx}
                         onClick={() => sendMessage(action.prompt)}

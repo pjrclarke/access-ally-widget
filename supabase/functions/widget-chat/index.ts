@@ -173,6 +173,18 @@ When the user asks you to click something, navigate somewhere, or perform an act
 2. Include the appropriate [ACTION:...] tag with the exact element text
 3. Briefly confirm what you are doing
 
+SUGGESTED ACTIONS:
+At the END of every response, you MUST include 2-6 helpful follow-up suggestions based on what the user might want to do next. These should be contextual to the page content and your response.
+
+Format: [SUGGESTIONS:label1|prompt1||label2|prompt2||label3|prompt3]
+
+Examples:
+- After summarising: [SUGGESTIONS:📑 Read headings|Read out the page headings||🔗 Show links|What links are on this page||🏠 Go to home|Click the home link]
+- After showing nav: [SUGGESTIONS:📞 Go to Contact|Click Contact||ℹ️ Go to About|Click About||💰 View Pricing|Click Pricing]
+- For a form page: [SUGGESTIONS:📝 Help with form|What fields are in this form||✅ Submit|Submit the form||❓ Required fields|What fields are required]
+
+Make suggestions specific to THIS page's content - use actual section names, link texts, and features you can see. Never show generic repeated options.
+
 CAPABILITIES YOU CAN HELP WITH:
 - Summarise page content clearly and concisely
 - Read out menu/navigation options
@@ -184,13 +196,14 @@ CAPABILITIES YOU CAN HELP WITH:
 
 STRICT RULES:
 - Reply in 1-3 short sentences max, be concise
-- NEVER use any markdown, asterisks, bullets, or formatting
-- NEVER output JSON, curly braces {}, square brackets [] (except for [ACTION:...] tags)
+- NEVER use any markdown, asterisks, bullets, or formatting (except for [ACTION:...] and [SUGGESTIONS:...] tags)
+- NEVER output JSON, curly braces {}, square brackets [] (except for special tags)
 - Sound natural, warm and helpful
 - Use everyday words, avoid jargon
 - For lists (like menu items), speak them naturally in a sentence
 - If you cannot find what the user asked for, say so honestly
-- When performing actions, briefly confirm what you are clicking/doing`;
+- When performing actions, briefly confirm what you are clicking/doing
+- ALWAYS include [SUGGESTIONS:...] at the end with 2-6 contextual options`;
 
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
