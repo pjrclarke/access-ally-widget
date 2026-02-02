@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Key, FileText, BarChart3, Loader2 } from "lucide-react";
+import { Building2, Key, FileText, BarChart3, Loader2, Shield } from "lucide-react";
 import AdminCompanies from "@/components/admin/AdminCompanies";
 import AdminApiKeys from "@/components/admin/AdminApiKeys";
 import AdminInvoices from "@/components/admin/AdminInvoices";
 import AdminRevenue from "@/components/admin/AdminRevenue";
+import AdminUsers from "@/components/admin/AdminUsers";
 
 const Admin = () => {
   const { user, loading: authLoading } = useAuth();
@@ -100,7 +101,7 @@ const Admin = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="companies" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
             <TabsTrigger value="companies" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               <span className="hidden sm:inline">Companies</span>
@@ -116,6 +117,10 @@ const Admin = () => {
             <TabsTrigger value="revenue" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Revenue</span>
+            </TabsTrigger>
+            <TabsTrigger value="admins" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Admins</span>
             </TabsTrigger>
           </TabsList>
 
@@ -133,6 +138,10 @@ const Admin = () => {
 
           <TabsContent value="revenue">
             <AdminRevenue />
+          </TabsContent>
+
+          <TabsContent value="admins">
+            <AdminUsers />
           </TabsContent>
         </Tabs>
       </main>
