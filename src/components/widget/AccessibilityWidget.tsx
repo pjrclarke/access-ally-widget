@@ -39,6 +39,7 @@ import {
   FileText,
   Mail
 } from "lucide-react";
+import { getInitialScreenReaderPreference, setScreenReaderDetected } from "@/hooks/useScreenReaderDetection";
 import {
   Dialog,
   DialogContent,
@@ -193,6 +194,77 @@ function getDefaultSuggestions(): { label: string; prompt: string }[] {
     { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
   ];
 }
+
+// Strip emojis from text for screen readers (they read emoji descriptions which is disruptive)
+function stripEmojisForSR(text: string): string {
+  // Remove emoji characters - this regex covers most common emoji ranges
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
+    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc symbols & pictographs
+    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport & map
+    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation selectors
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental symbols
+    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess symbols
+    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols extended
+    .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, hourglass
+    .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Media controls
+    .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // More media controls
+    .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
+    .replace(/[\u{25B6}]/gu, '')            // Play button
+    .replace(/[\u{25C0}]/gu, '')            // Reverse button
+    .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // More squares
+    .replace(/[\u{2614}-\u{2615}]/gu, '')   // Umbrella, coffee
+    .replace(/[\u{2648}-\u{2653}]/gu, '')   // Zodiac
+    .replace(/[\u{267F}]/gu, '')            // Wheelchair
+    .replace(/[\u{2693}]/gu, '')            // Anchor
+    .replace(/[\u{26A1}]/gu, '')            // Lightning
+    .replace(/[\u{26AA}-\u{26AB}]/gu, '')   // Circles
+    .replace(/[\u{26BD}-\u{26BE}]/gu, '')   // Sports balls
+    .replace(/[\u{26C4}-\u{26C5}]/gu, '')   // Snowman, sun
+    .replace(/[\u{26CE}]/gu, '')            // Ophiuchus
+    .replace(/[\u{26D4}]/gu, '')            // No entry
+    .replace(/[\u{26EA}]/gu, '')            // Church
+    .replace(/[\u{26F2}-\u{26F3}]/gu, '')   // Fountain, golf
+    .replace(/[\u{26F5}]/gu, '')            // Sailboat
+    .replace(/[\u{26FA}]/gu, '')            // Tent
+    .replace(/[\u{26FD}]/gu, '')            // Fuel pump
+    .replace(/[\u{2702}]/gu, '')            // Scissors
+    .replace(/[\u{2705}]/gu, '')            // Check mark
+    .replace(/[\u{2708}-\u{270D}]/gu, '')   // Airplane to writing hand
+    .replace(/[\u{270F}]/gu, '')            // Pencil
+    .replace(/[\u{2712}]/gu, '')            // Black nib
+    .replace(/[\u{2714}]/gu, '')            // Check mark
+    .replace(/[\u{2716}]/gu, '')            // X mark
+    .replace(/[\u{271D}]/gu, '')            // Latin cross
+    .replace(/[\u{2721}]/gu, '')            // Star of David
+    .replace(/[\u{2728}]/gu, '')            // Sparkles
+    .replace(/[\u{2733}-\u{2734}]/gu, '')   // Asterisks
+    .replace(/[\u{2744}]/gu, '')            // Snowflake
+    .replace(/[\u{2747}]/gu, '')            // Sparkle
+    .replace(/[\u{274C}]/gu, '')            // Cross mark
+    .replace(/[\u{274E}]/gu, '')            // Cross mark box
+    .replace(/[\u{2753}-\u{2755}]/gu, '')   // Question marks
+    .replace(/[\u{2757}]/gu, '')            // Exclamation
+    .replace(/[\u{2763}-\u{2764}]/gu, '')   // Hearts
+    .replace(/[\u{2795}-\u{2797}]/gu, '')   // Math symbols
+    .replace(/[\u{27A1}]/gu, '')            // Right arrow
+    .replace(/[\u{27B0}]/gu, '')            // Curly loop
+    .replace(/[\u{27BF}]/gu, '')            // Double curly loop
+    .replace(/[\u{2934}-\u{2935}]/gu, '')   // Arrows
+    .replace(/[\u{2B05}-\u{2B07}]/gu, '')   // Arrows
+    .replace(/[\u{2B1B}-\u{2B1C}]/gu, '')   // Squares
+    .replace(/[\u{2B50}]/gu, '')            // Star
+    .replace(/[\u{2B55}]/gu, '')            // Circle
+    .replace(/[\u{3030}]/gu, '')            // Wavy dash
+    .replace(/[\u{303D}]/gu, '')            // Part alternation
+    .replace(/[\u{3297}]/gu, '')            // Circled ideograph
+    .replace(/[\u{3299}]/gu, '')            // Circled ideograph
+    .trim();
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
@@ -231,7 +303,9 @@ export function AccessibilityWidget() {
   const [currentSuggestions, setCurrentSuggestions] = useState<{ label: string; prompt: string }[]>(getDefaultSuggestions());
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
+  // Disable speech by default if screen reader was previously detected
+  const [isSpeechEnabled, setIsSpeechEnabled] = useState(() => !getInitialScreenReaderPreference());
+  const [screenReaderDetected, setScreenReaderDetectedState] = useState(getInitialScreenReaderPreference);
   const [readingGuideY, setReadingGuideY] = useState(0);
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
@@ -243,6 +317,8 @@ export function AccessibilityWidget() {
   const inputRef = useRef<HTMLInputElement>(null);
   const widgetButtonRef = useRef<HTMLButtonElement>(null);
   const srAnnouncementRef = useRef<HTMLDivElement>(null);
+  const latestResponseRef = useRef<HTMLDivElement>(null);
+  const responseAnnouncerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   // Check if running on Lovable preview/app domain (internal demo mode)
@@ -304,6 +380,54 @@ export function AccessibilityWidget() {
   
   // Accessibility audit hook
   const { isScanning, result: auditResult, runAudit, clearResult: clearAuditResult } = useAccessibilityAudit();
+
+  // Detect VoiceOver/screen reader on first user interaction
+  // VoiceOver on iOS sends specific touch patterns we can detect
+  useEffect(() => {
+    if (screenReaderDetected) return; // Already detected
+
+    const detectVoiceOver = () => {
+      // If this event fired from a focus-only interaction (no preceding pointer),
+      // it's likely a screen reader exploring the page
+      // We use a simple heuristic: if the user interacts with the widget button
+      // and we detect VoiceOver-specific behavior, disable speech
+      
+      // Check for iOS VoiceOver hint
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        // On iOS with VoiceOver, touches are different
+        // The widget being used suggests VoiceOver may be active
+        // We'll set detected=true after 3 interactions without mouse movement
+        let pointerMoved = false;
+        
+        const handlePointerMove = () => {
+          pointerMoved = true;
+        };
+        
+        const handleInteraction = () => {
+          if (!pointerMoved) {
+            // No pointer movement before interaction = likely VoiceOver
+            setScreenReaderDetectedState(true);
+            setScreenReaderDetected(true);
+            setIsSpeechEnabled(false);
+          }
+          // Clean up
+          window.removeEventListener("pointermove", handlePointerMove);
+          window.removeEventListener("click", handleInteraction);
+        };
+        
+        window.addEventListener("pointermove", handlePointerMove, { once: true, passive: true });
+        window.addEventListener("click", handleInteraction, { once: true, passive: true });
+        
+        return () => {
+          window.removeEventListener("pointermove", handlePointerMove);
+          window.removeEventListener("click", handleInteraction);
+        };
+      }
+    };
+
+    detectVoiceOver();
+  }, [screenReaderDetected]);
   
   // Visual accessibility settings - initialize from localStorage
   const [settings, setSettings] = useState<AccessibilitySettings>(loadSettings);
@@ -705,14 +829,28 @@ export function AccessibilityWidget() {
       }
 
       // Speak the response if enabled (strip markdown, actions and suggestions for cleaner speech)
-      if (isSpeechEnabled && assistantContent) {
-        const cleanContent = stripMarkdown(assistantContent)
-          .replace(/\[ACTION:\w+:.+?\]/g, '')
-          .replace(/\[SUGGESTIONS:[^\]]*\]/g, '');
-        if (cleanContent.trim()) {
-          speak(cleanContent);
-        }
+      // BUT only if screen reader is NOT detected (to avoid double speech)
+      const cleanContent = stripMarkdown(assistantContent)
+        .replace(/\[ACTION:\w+:.+?\]/g, '')
+        .replace(/\[SUGGESTIONS:[^\]]*\]/g, '');
+      
+      if (isSpeechEnabled && !screenReaderDetected && cleanContent.trim()) {
+        speak(cleanContent);
       }
+
+      // For screen reader users: announce the response via live region
+      // and focus on the latest response after a short delay
+      if (screenReaderDetected && responseAnnouncerRef.current && cleanContent.trim()) {
+        // Update the live region to announce the response
+        responseAnnouncerRef.current.textContent = cleanContent.trim();
+      }
+
+      // Focus on the latest response for VoiceOver navigation
+      setTimeout(() => {
+        if (latestResponseRef.current) {
+          latestResponseRef.current.focus();
+        }
+      }, 100);
     } catch (error) {
       // Clear timeouts on error
       hasReceivedResponse = true;
@@ -733,7 +871,7 @@ export function AccessibilityWidget() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, getPageContext, executeAction, isSpeechEnabled, speak, toast, widgetApiKey]);
+  }, [isLoading, getPageContext, executeAction, isSpeechEnabled, screenReaderDetected, speak, toast, widgetApiKey]);
 
   // Keep sendMessageRef updated
   useEffect(() => {
@@ -1205,6 +1343,15 @@ export function AccessibilityWidget() {
               )}
             </div>
 
+            {/* Screen reader live region for response announcements */}
+            <div
+              ref={responseAnnouncerRef}
+              role="status"
+              aria-live="assertive"
+              aria-atomic="true"
+              className="sr-only"
+            />
+
             {/* Messages */}
             <div 
               className="h-[280px] overflow-y-auto p-4 space-y-4"
@@ -1212,53 +1359,70 @@ export function AccessibilityWidget() {
               aria-live="polite"
               aria-label="Chat messages"
             >
-              {messages.map((message, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
+              {messages.map((message, index) => {
+                const isLatestAssistant = message.role === "assistant" && index === messages.length - 1;
+                return (
                   <div
+                    key={index}
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-4 py-2.5",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-secondary-foreground rounded-bl-md"
+                      "flex",
+                      message.role === "user" ? "justify-end" : "justify-start"
                     )}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div
+                      ref={isLatestAssistant ? latestResponseRef : undefined}
+                      tabIndex={isLatestAssistant ? -1 : undefined}
+                      aria-label={isLatestAssistant ? `Assistant response: ${message.content}` : undefined}
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-4 py-2.5",
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-secondary text-secondary-foreground rounded-bl-md",
+                        isLatestAssistant && "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                      )}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {/* Contextual action buttons - shown after every AI reply */}
               {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && currentSuggestions.length > 0 && (
                 <div className="flex flex-col items-center pt-3 pb-1">
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground mb-2" id="suggestions-label">
                     What would you like to do next?
                   </p>
-                  <div className={cn(
-                    "grid gap-2 w-full",
-                    currentSuggestions.length <= 3 ? "grid-cols-1 max-w-[200px]" : "grid-cols-2 max-w-[300px]"
-                  )}>
-                    {currentSuggestions.map((action, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => sendMessage(action.prompt)}
-                        className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
-                        aria-label={action.label}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
+                  <div 
+                    className={cn(
+                      "grid gap-2 w-full",
+                      currentSuggestions.length <= 3 ? "grid-cols-1 max-w-[200px]" : "grid-cols-2 max-w-[300px]"
+                    )}
+                    role="group"
+                    aria-labelledby="suggestions-label"
+                  >
+                    {currentSuggestions.map((action, idx) => {
+                      // Strip emojis for screen reader label, but keep visual display
+                      const srLabel = stripEmojisForSR(action.label);
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => sendMessage(action.prompt)}
+                          className="px-3 py-2 text-xs rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors text-left font-medium border border-primary/30 text-foreground"
+                          aria-label={srLabel}
+                        >
+                          {/* Hide emoji from screen readers but show visually */}
+                          <span aria-hidden="true">{action.label}</span>
+                          <span className="sr-only">{srLabel}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
                   <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-2.5">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Loading response" />
                   </div>
                 </div>
               )}
