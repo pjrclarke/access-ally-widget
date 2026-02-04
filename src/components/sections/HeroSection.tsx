@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Mic, MessageSquare, Volume2 } from "lucide-react";
+import { ArrowRight, Accessibility, MessageSquare, Volume2 } from "lucide-react";
 
 export function HeroSection() {
   return (
@@ -88,7 +88,7 @@ export function HeroSection() {
                   <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4">
                     <div className="relative">
                       <div className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 rounded-full bg-gradient-primary shadow-lg flex items-center justify-center animate-pulse-glow cursor-pointer">
-                        <Mic className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary-foreground" />
+                        <Accessibility className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-primary-foreground" />
                       </div>
                       {/* Tooltip - hidden on mobile */}
                       <div className="absolute bottom-full right-0 mb-2 px-2 sm:px-3 py-1 sm:py-2 bg-card border border-border rounded-lg shadow-lg text-xs sm:text-sm whitespace-nowrap hidden sm:block">
