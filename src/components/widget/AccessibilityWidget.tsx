@@ -1204,7 +1204,19 @@ export function AccessibilityWidget() {
               <Accessibility className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">Accessibility Assistant</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-semibold text-foreground">Accessibility Assistant</h2>
+                {screenReaderDetected && (
+                  <span 
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                    title="Screen reader detected - widget speech disabled to avoid conflicts"
+                    aria-label="Screen reader mode active"
+                  >
+                    <Eye className="h-2.5 w-2.5" aria-hidden="true" />
+                    SR
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {activeTab === "chat" ? "Ask me anything about this page" : "Visual settings"}
               </p>
