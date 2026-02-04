@@ -28,14 +28,14 @@ export function Header() {
         <a 
           href="/" 
           className="flex items-center gap-2 text-xl font-bold"
-          aria-label="AccessibilityAI Home"
+          aria-label="A11y Labs Home"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-primary">
             <Accessibility className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="hidden sm:inline">
-            <span className="text-gradient-primary">Accessibility</span>
-            <span className="text-foreground">AI</span>
+            <span className="text-gradient-primary">A11y</span>
+            <span className="text-foreground"> Labs</span>
           </span>
         </a>
 
