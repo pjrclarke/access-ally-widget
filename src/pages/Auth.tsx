@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -7,17 +7,56 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, Accessibility } from "lucide-react";
+import { Loader2, ArrowLeft, Accessibility, Check, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+type AuthView = "signin" | "forgot-password" | "reset-password";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [view, setView] = useState<AuthView>("signin");
+  const [isRecoverySession, setIsRecoverySession] = useState(false);
+
+  // Check for password recovery session on mount
+  useEffect(() => {
+    const checkRecoverySession = async () => {
+      // Check URL for recovery indicators
+      const isReset = searchParams.get("reset") === "true";
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const type = hashParams.get("type");
+      const accessToken = hashParams.get("access_token");
+      
+      if ((isReset || type === "recovery") && accessToken) {
+        // User clicked recovery link in email - they have a valid session
+        setIsRecoverySession(true);
+        setView("reset-password");
+        
+        // Clear the hash from URL for cleaner appearance
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    };
+
+    checkRecoverySession();
+
+    // Listen for auth state changes (handles the recovery flow)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setIsRecoverySession(true);
+        setView("reset-password");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,13 +126,65 @@ const Auth = () => {
 
       toast({
         title: "Check your email",
-        description: "We've sent you a password reset link.",
+        description: "We've sent you a password reset link. It may take a few minutes to arrive.",
       });
-      setShowForgotPassword(false);
+      setView("signin");
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Reset failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({
+        variant: "destructive",
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+      });
+      return;
+    }
+
+    if (password.length < 8) {
+      toast({
+        variant: "destructive",
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password,
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated!",
+        description: "Your password has been successfully changed. You can now sign in.",
+      });
+
+      // Sign out and redirect to sign in
+      await supabase.auth.signOut();
+      setIsRecoverySession(false);
+      setView("signin");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Update failed",
         description: error instanceof Error ? error.message : "An error occurred",
       });
     } finally {
@@ -120,6 +211,33 @@ const Auth = () => {
     }
   };
 
+  // Password strength indicators
+  const passwordChecks = {
+    length: password.length >= 8,
+    hasNumber: /\d/.test(password),
+    hasLetter: /[a-zA-Z]/.test(password),
+  };
+
+  const renderPasswordStrength = () => (
+    <div className="space-y-2 text-xs">
+      <p className="text-muted-foreground font-medium">Password requirements:</p>
+      <ul className="space-y-1">
+        <li className={`flex items-center gap-2 ${passwordChecks.length ? "text-green-600" : "text-muted-foreground"}`}>
+          <Check className={`h-3 w-3 ${passwordChecks.length ? "opacity-100" : "opacity-30"}`} />
+          At least 8 characters
+        </li>
+        <li className={`flex items-center gap-2 ${passwordChecks.hasLetter ? "text-green-600" : "text-muted-foreground"}`}>
+          <Check className={`h-3 w-3 ${passwordChecks.hasLetter ? "opacity-100" : "opacity-30"}`} />
+          Contains a letter
+        </li>
+        <li className={`flex items-center gap-2 ${passwordChecks.hasNumber ? "text-green-600" : "text-muted-foreground"}`}>
+          <Check className={`h-3 w-3 ${passwordChecks.hasNumber ? "opacity-100" : "opacity-30"}`} />
+          Contains a number
+        </li>
+      </ul>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-4">
@@ -137,16 +255,19 @@ const Auth = () => {
               <Accessibility className="h-6 w-6 text-primary-foreground" />
             </div>
             <CardTitle>
-              {showForgotPassword ? "Reset Password" : "Welcome to A11y Labs"}
+              {view === "forgot-password" && "Reset Password"}
+              {view === "reset-password" && "Create New Password"}
+              {view === "signin" && "Welcome to A11y Labs"}
             </CardTitle>
             <CardDescription>
-              {showForgotPassword
-                ? "Enter your email to receive a reset link"
-                : "Sign in to access your dashboard"}
+              {view === "forgot-password" && "Enter your email to receive a reset link"}
+              {view === "reset-password" && "Choose a strong password for your account"}
+              {view === "signin" && "Sign in to access your dashboard"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {showForgotPassword ? (
+            {/* Forgot Password View */}
+            {view === "forgot-password" && (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="reset-email">Email</Label>
@@ -173,13 +294,99 @@ const Auth = () => {
                   type="button"
                   variant="ghost"
                   className="w-full"
-                  onClick={() => setShowForgotPassword(false)}
+                  onClick={() => setView("signin")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Sign In
                 </Button>
               </form>
-            ) : (
+            )}
+
+            {/* Reset Password View (Set New Password) */}
+            {view === "reset-password" && (
+              <form onSubmit={handleUpdatePassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {password && renderPasswordStrength()}
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={8}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-xs text-destructive">Passwords don't match</p>
+                  )}
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading || password !== confirmPassword || !passwordChecks.length}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Password"
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {/* Sign In / Sign Up View */}
+            {view === "signin" && (
               <>
                 {/* Google Sign In Button */}
                 <Button
@@ -268,7 +475,7 @@ const Auth = () => {
                         type="button"
                         variant="link"
                         className="w-full text-sm"
-                        onClick={() => setShowForgotPassword(true)}
+                        onClick={() => setView("forgot-password")}
                       >
                         Forgot your password?
                       </Button>
