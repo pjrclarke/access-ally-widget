@@ -24,39 +24,55 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [view, setView] = useState<AuthView>("signin");
-  const [isRecoverySession, setIsRecoverySession] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   // Check for password recovery session on mount
   useEffect(() => {
-    const checkRecoverySession = async () => {
-      // Check URL for recovery indicators
+    const checkSession = async () => {
+      setIsCheckingSession(true);
+      
+      // Check if we have recovery params in URL
       const isReset = searchParams.get("reset") === "true";
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const type = hashParams.get("type");
       const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
       
-      if ((isReset || type === "recovery") && accessToken) {
-        // User clicked recovery link in email - they have a valid session
-        setIsRecoverySession(true);
-        setView("reset-password");
+      if ((isReset || type === "recovery") && accessToken && refreshToken) {
+        // Set the session from the URL tokens
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
         
-        // Clear the hash from URL for cleaner appearance
-        window.history.replaceState(null, "", window.location.pathname);
+        if (!error) {
+          setView("reset-password");
+          // Clear the hash from URL for cleaner appearance
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        } else {
+          console.error("Failed to set session:", error);
+          toast({
+            variant: "destructive",
+            title: "Session expired",
+            description: "Please request a new password reset link.",
+          });
+        }
       }
+      
+      setIsCheckingSession(false);
     };
 
-    checkRecoverySession();
+    checkSession();
 
-    // Listen for auth state changes (handles the recovery flow)
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setIsRecoverySession(true);
+      if (event === "PASSWORD_RECOVERY" && session) {
         setView("reset-password");
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [searchParams]);
+  }, [searchParams, toast]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +193,6 @@ const Auth = () => {
 
       // Sign out and redirect to sign in
       await supabase.auth.signOut();
-      setIsRecoverySession(false);
       setView("signin");
       setPassword("");
       setConfirmPassword("");
@@ -237,6 +252,18 @@ const Auth = () => {
       </ul>
     </div>
   );
+
+  // Show loading while checking session
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Verifying your session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
