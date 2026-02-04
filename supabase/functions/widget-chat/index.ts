@@ -149,7 +149,42 @@ serve(async (req) => {
     }
 
 
-    const { message, pageContent, interactiveElements, pageUrl } = await req.json();
+    const body = await req.json();
+    const { message, pageContent, interactiveElements, pageUrl } = body;
+    
+    // Validate message - required and must be a string
+    if (!message || typeof message !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "Invalid message format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate message length (max 2000 characters)
+    if (message.length > 2000) {
+      return new Response(
+        JSON.stringify({ error: "Message too long. Maximum 2000 characters." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate and truncate page content (max 10000 characters)
+    let validatedPageContent = '';
+    if (pageContent && typeof pageContent === 'string') {
+      validatedPageContent = pageContent.length > 10000 ? pageContent.slice(0, 10000) : pageContent;
+    }
+
+    // Validate and truncate interactive elements (max 5000 characters)
+    let validatedInteractiveElements = '';
+    if (interactiveElements && typeof interactiveElements === 'string') {
+      validatedInteractiveElements = interactiveElements.length > 5000 ? interactiveElements.slice(0, 5000) : interactiveElements;
+    }
+
+    // Validate pageUrl (max 2000 characters, must be string if provided)
+    let validatedPageUrl = '';
+    if (pageUrl && typeof pageUrl === 'string') {
+      validatedPageUrl = pageUrl.length > 2000 ? pageUrl.slice(0, 2000) : pageUrl;
+    }
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -158,9 +193,9 @@ serve(async (req) => {
 
     const systemPrompt = `You are a helpful accessibility assistant on this website. Help users with visual impairments navigate and understand the page content. Use British English spelling (e.g. summarise, colour, organisation).
 
-Page: ${pageUrl || "this page"}
-Content: ${pageContent || "Not available"}
-Clickable elements: ${interactiveElements || "None found"}
+Page: ${validatedPageUrl || "this page"}
+Content: ${validatedPageContent || "Not available"}
+Clickable elements: ${validatedInteractiveElements || "None found"}
 
 ACTIONS (include ONLY when you will perform an action):
 [ACTION:CLICK:element_text] - to click a button or link
