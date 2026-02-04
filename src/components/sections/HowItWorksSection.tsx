@@ -24,7 +24,7 @@ const steps = [
     icon: Code,
     title: "Add One Line of Code",
     description: "Copy and paste your personalised embed code. That's it—you're live!",
-    code: '<script src="https://cdn.accessibilitya11y.com/widget.js" data-key="YOUR_KEY"></script>',
+    code: '<script src="https://cdn.a11ylabs.co.uk/widget.js" data-key="YOUR_KEY"></script>',
     showDashboardPreview: false,
   },
 ];
