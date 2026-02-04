@@ -51,6 +51,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
@@ -1207,14 +1208,20 @@ export function AccessibilityWidget() {
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-foreground">Accessibility Assistant</h2>
                 {screenReaderDetected && (
-                  <span 
-                    className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                    title="Screen reader detected - widget speech disabled to avoid conflicts"
-                    aria-label="Screen reader mode active"
-                  >
-                    <Eye className="h-2.5 w-2.5" aria-hidden="true" />
-                    SR
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span 
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 cursor-help"
+                        aria-label="Screen reader mode active - widget speech disabled"
+                      >
+                        <Eye className="h-2.5 w-2.5" aria-hidden="true" />
+                        SR
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[200px] text-center">
+                      <p className="text-xs">Screen reader detected. Widget speech is disabled to avoid conflicts with your assistive technology.</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
