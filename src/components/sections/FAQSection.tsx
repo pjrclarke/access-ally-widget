@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     question: "Is this WCAG compliant?",
-    answer: "Yes! AccessibilityAI helps your website meet WCAG 2.1 AA compliance requirements. Our widget itself is also fully accessible, supporting keyboard navigation and screen readers. We provide documentation for your compliance audits.",
+    answer: "Yes! Accessibility A11y helps your website meet WCAG 2.1 AA compliance requirements. Our widget itself is also fully accessible, supporting keyboard navigation and screen readers. We provide documentation for your compliance audits.",
   },
   {
     question: "What's included in the 'lifetime updates'?",
@@ -32,7 +32,7 @@ const faqs = [
   },
   {
     question: "Do you offer refunds?",
-    answer: "Yes, we offer a 30-day money-back guarantee, no questions asked. If AccessibilityAI doesn't meet your needs, simply contact us within 30 days of purchase for a full refund.",
+    answer: "Yes, we offer a 30-day money-back guarantee, no questions asked. If Accessibility A11y doesn't meet your needs, simply contact us within 30 days of purchase for a full refund.",
   },
   {
     question: "Can I try it before buying?",
@@ -51,7 +51,7 @@ export function FAQSection() {
             <span className="text-gradient-primary">Questions</span>
           </h2>
           <p className="text-base md:text-lg text-muted-foreground">
-            Everything you need to know about AccessibilityAI. Can't find what you're looking for? Contact our support team.
+            Everything you need to know about Accessibility A11y. Can't find what you're looking for? Contact our support team.
           </p>
         </div>
 

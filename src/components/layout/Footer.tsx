@@ -39,8 +39,8 @@ export function Footer() {
                 <Accessibility className="h-4 w-4 sm:h-5 sm:w-5 text-primary-foreground" />
               </div>
               <span>
-                <span className="text-gradient-primary">Accessibility</span>
-                <span className="text-foreground">AI</span>
+                <span className="text-gradient-primary">A11y</span>
+                <span className="text-foreground"> Labs</span>
               </span>
             </a>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-xs">
@@ -151,7 +151,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
           <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-            © {new Date().getFullYear()} AccessibilityAI. All rights reserved.
+            © {new Date().getFullYear()} A11y Labs. All rights reserved.
           </p>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1 rounded-full bg-success/10 text-success text-[10px] sm:text-xs font-medium">

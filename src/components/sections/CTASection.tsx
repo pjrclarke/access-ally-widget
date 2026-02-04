@@ -17,7 +17,7 @@ export function CTASection() {
               Ready to Make Your Website Accessible to Everyone?
             </h2>
             <p className="text-base sm:text-lg md:text-xl text-primary-foreground/80 mb-6 sm:mb-8 max-w-2xl mx-auto">
-              Join thousands of websites that trust AccessibilityAI to provide a better experience for all their users.
+              Join thousands of websites that trust Accessibility A11y to provide a better experience for all their users.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
