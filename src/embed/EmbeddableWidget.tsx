@@ -124,6 +124,36 @@ function stripActionMarkers(text: string): string {
   return text.replace(/\[ACTION:\w+:[^\]]+\]/g, '').trim();
 }
 
+// Strip [SUGGESTIONS:...] markers from content for display
+function stripSuggestionMarkers(text: string): string {
+  return text.replace(/\[SUGGESTIONS:[^\]]*\]/g, '').trim();
+}
+
+// Parse [SUGGESTIONS:label1|prompt1||label2|prompt2||...] from AI response
+function parseSuggestions(text: string): { label: string; prompt: string }[] {
+  const match = text.match(/\[SUGGESTIONS:([^\]]*)\]/);
+  if (!match || !match[1]) return [];
+  
+  const suggestionsStr = match[1];
+  const pairs = suggestionsStr.split('||');
+  
+  return pairs
+    .map(pair => {
+      const [label, prompt] = pair.split('|');
+      if (label && prompt) {
+        return { label: label.trim(), prompt: prompt.trim() };
+      }
+      return null;
+    })
+    .filter((s): s is { label: string; prompt: string } => s !== null)
+    .slice(0, 6); // Max 6 suggestions
+}
+
+// Clean all special markers from display text
+function cleanDisplayText(text: string): string {
+  return stripSuggestionMarkers(stripActionMarkers(stripForSpeech(text)));
+}
+
 // Generate contextual action suggestions based on assistant's last message
 function getContextualActions(lastMessage: string): { label: string; prompt: string }[] {
   const lowerMsg = lastMessage.toLowerCase();
@@ -493,6 +523,7 @@ export function EmbeddableWidget({
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [hasAnnouncedOnboarding, setHasAnnouncedOnboarding] = useState(false);
+  const [dynamicSuggestions, setDynamicSuggestions] = useState<{ label: string; prompt: string }[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const srAnnouncementRef = useRef<HTMLDivElement>(null);
@@ -1085,8 +1116,8 @@ export function EmbeddableWidget({
                 const content = parsed.choices?.[0]?.delta?.content || "";
                 if (content) {
                   fullResponse += content;
-                  // Clean markdown and action markers from display
-                  const cleanedForDisplay = stripActionMarkers(stripForSpeech(fullResponse));
+                  // Clean all special markers from display
+                  const cleanedForDisplay = cleanDisplayText(fullResponse);
                   setMessages((prev) => {
                     const updated = [...prev];
                     updated[updated.length - 1] = { role: "assistant", content: cleanedForDisplay };
@@ -1100,9 +1131,30 @@ export function EmbeddableWidget({
           }
         }
 
+        // Parse and execute any actions in the response
         const cleanedResponse = parseAndExecuteActions(fullResponse);
+        
+        // Extract and set dynamic suggestions from AI response
+        const suggestions = parseSuggestions(fullResponse);
+        if (suggestions.length > 0) {
+          setDynamicSuggestions(suggestions);
+        } else {
+          // Fall back to contextual actions if AI didn't provide suggestions
+          setDynamicSuggestions([]);
+        }
+        
+        // Final clean for display (in case streaming left artifacts)
+        const finalCleanText = cleanDisplayText(fullResponse);
+        setMessages((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0 && updated[updated.length - 1].role === "assistant") {
+            updated[updated.length - 1] = { role: "assistant", content: finalCleanText };
+          }
+          return updated;
+        });
+        
         if (isSpeechEnabled && cleanedResponse) {
-          const speechText = stripForSpeech(cleanedResponse);
+          const speechText = stripForSpeech(stripSuggestionMarkers(cleanedResponse));
           if (speechText) speak(speechText);
         }
       }
@@ -1317,7 +1369,11 @@ export function EmbeddableWidget({
                     Select from the following actions, or type what you'd like to do:
                   </p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "300px" }}>
-                    {getContextualActions(messages[messages.length - 1]?.content || "").map((action, idx) => (
+                    {/* Use dynamic AI suggestions if available, otherwise fall back to contextual actions */}
+                    {(dynamicSuggestions.length > 0 
+                      ? dynamicSuggestions 
+                      : getContextualActions(messages[messages.length - 1]?.content || "")
+                    ).map((action, idx) => (
                       <button
                         key={idx}
                         type="button"
