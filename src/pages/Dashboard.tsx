@@ -232,14 +232,16 @@ const Dashboard = () => {
   };
 
   const getEmbedCode = (key: ApiKey) => {
-    return `<script src="https://cdn.jsdelivr.net/gh/pjrclarke/a11ywidget@main/dist-embed/a11y-widget.iife.js"></script>
+    return `<!-- A11y Widget - Script Embed -->
 <script>
   window.A11yWidgetConfig = {
     apiKey: "${key.api_key}",
     position: "${key.position}",
-    primaryColor: "${key.primary_color}"
+    primaryColor: "${key.primary_color}",
+    apiEndpoint: "https://orkmsolbgmfcdylexioq.supabase.co/functions/v1/widget-chat"
   };
-</script>`;
+</script>
+<script src="https://cdn.jsdelivr.net/gh/pjrclarke/access-ally-widget@main/dist-embed/a11y-widget.iife.js" defer></script>`;
   };
 
   if (authLoading || loading) {
