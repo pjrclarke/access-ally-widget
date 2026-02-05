@@ -151,10 +151,10 @@ function stripMarkdown(text: string): string {
 // Strip [ACTION:...] and [SUGGESTIONS:...] markers and any stray JSON-like artifacts from content for display
 function stripActionMarkers(text: string): string {
   return text
-    // Remove [ACTION:TYPE:target] markers
-    .replace(/\[ACTION:\w+:[^\]]*\]/gi, '')
-    // Remove [SUGGESTIONS:...] block
-    .replace(/\[SUGGESTIONS:[^\]]*\]/gi, '')
+    // Remove any [ACTION:...] markers (including malformed ones)
+    .replace(/\[ACTION:[^\]]*\]/gis, '')
+    // Remove [SUGGESTIONS:...] block (allow multiline)
+    .replace(/\[SUGGESTIONS:[\s\S]*?\]/gi, '')
     // Remove common AI output artifacts like }] or [{ or stray brackets
     .replace(/^\s*[\[\{}\]]+\s*/g, '')
     .replace(/\s*[\[\{}\]]+\s*$/g, '')
@@ -169,7 +169,7 @@ function stripActionMarkers(text: string): string {
 
 // Parse AI-generated suggestions from response
 function parseAISuggestions(text: string): { label: string; prompt: string }[] {
-  const match = text.match(/\[SUGGESTIONS:([^\]]+)\]/);
+  const match = text.match(/\[SUGGESTIONS:([\s\S]*?)\]/i);
   if (!match) return [];
   
   const suggestionsStr = match[1];
@@ -186,6 +186,8 @@ function parseAISuggestions(text: string): { label: string; prompt: string }[] {
     .filter((s): s is { label: string; prompt: string } => s !== null)
     .slice(0, 6); // Max 6 suggestions
 }
+
+const WIDGET_ROOT_SELECTOR = "[data-a11y-widget-root]";
 
 // Default suggestions for the initial welcome message
 function getDefaultSuggestions(): { label: string; prompt: string }[] {
@@ -576,6 +578,8 @@ export function AccessibilityWidget() {
     // Get clickable elements for AI to reference
     const interactiveElements: string[] = [];
     document.querySelectorAll('button, a, [role="button"], input[type="submit"]').forEach((el, i) => {
+      // Exclude the widget itself so the AI doesn't target its own buttons.
+      if ((el as HTMLElement).closest(WIDGET_ROOT_SELECTOR)) return;
       const text = el.textContent?.trim() || el.getAttribute('aria-label') || '';
       const id = el.id || '';
       if (text && i < 20) { // Limit to 20 elements
@@ -591,59 +595,171 @@ export function AccessibilityWidget() {
 
   // Execute page actions returned by AI
   const executeAction = useCallback((action: string) => {
-    const actionMatch = action.match(/\[ACTION:(\w+):(.+?)\]/);
+    const actionMatch = action.match(/\[ACTION:(CLICK|SCROLL|FOCUS|FILL):([^\]]+)\]/i);
     if (!actionMatch) return;
-    
-    const [, actionType, target] = actionMatch;
-    let element: Element | null = null;
-    
-    // Try to find element by various methods
-    // Try by ID first
-    element = document.getElementById(target);
-    
-    // Try by text content
-    if (!element) {
-      const allElements = document.querySelectorAll('button, a, [role="button"], input, textarea');
-      for (const el of allElements) {
-        if (el.textContent?.toLowerCase().includes(target.toLowerCase()) ||
-            el.getAttribute('aria-label')?.toLowerCase().includes(target.toLowerCase())) {
-          element = el;
-          break;
-        }
+
+    const actionType = actionMatch[1].toUpperCase();
+    const rawTarget = actionMatch[2];
+
+    // For FILL, rawTarget can be "field:value"
+    let elementTarget = rawTarget;
+    let fillValue: string | undefined;
+    if (actionType === "FILL") {
+      const idx = rawTarget.indexOf(":");
+      if (idx !== -1) {
+        elementTarget = rawTarget.slice(0, idx);
+        fillValue = rawTarget.slice(idx + 1);
       }
     }
-    
-    // Try by selector
-    if (!element) {
+
+    const targetNorm = elementTarget.trim().toLowerCase();
+    const isInsideWidget = (el: Element | null) =>
+      !!el && !!(el as HTMLElement).closest(WIDGET_ROOT_SELECTOR);
+
+    const getCandidateText = (el: Element) => {
+      const ht = el as HTMLElement;
+      const text = (ht.textContent || "").trim().toLowerCase();
+      const aria = (ht.getAttribute("aria-label") || "").trim().toLowerCase();
+      const title = (ht.getAttribute("title") || "").trim().toLowerCase();
+      const id = (ht.id || "").trim().toLowerCase();
+      const href = (el instanceof HTMLAnchorElement ? (el.getAttribute("href") || "") : "").trim().toLowerCase();
+      return { text, aria, title, id, href };
+    };
+
+    const simulateClick = (ht: HTMLElement) => {
       try {
-        element = document.querySelector(target);
+        ht.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch {
-        // Invalid selector, ignore
+        // ignore
+      }
+
+      try {
+        ht.focus?.();
+      } catch {
+        // ignore
+      }
+
+      const rect = ht.getBoundingClientRect?.();
+      const clientX = rect ? rect.left + rect.width / 2 : 1;
+      const clientY = rect ? rect.top + rect.height / 2 : 1;
+
+      const base: MouseEventInit = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        clientX,
+        clientY,
+      };
+
+      try {
+        if (typeof PointerEvent !== "undefined") {
+          ht.dispatchEvent(new PointerEvent("pointerdown", { ...(base as any), pointerType: "mouse" }));
+          ht.dispatchEvent(new PointerEvent("pointerup", { ...(base as any), pointerType: "mouse" }));
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        ht.dispatchEvent(new MouseEvent("mousedown", base));
+        ht.dispatchEvent(new MouseEvent("mouseup", base));
+        ht.dispatchEvent(new MouseEvent("click", base));
+      } catch {
+        // ignore
+      }
+
+      try {
+        ht.click();
+      } catch {
+        // ignore
+      }
+    };
+
+    let element: Element | null = null;
+
+    // Strategy 1: Try by ID
+    element = document.getElementById(elementTarget);
+    if (isInsideWidget(element)) element = null;
+
+    // Strategy 2: Exact/contains match on interactive elements
+    if (!element) {
+      const allInteractive = Array.from(
+        document.querySelectorAll(
+          'a, button, [role="button"], [role="link"], input[type="submit"], input[type="button"], input, textarea, select'
+        )
+      ).filter((el) => !isInsideWidget(el));
+
+      element =
+        allInteractive.find((el) => {
+          const c = getCandidateText(el);
+          return c.text === targetNorm || c.aria === targetNorm || c.title === targetNorm || c.id === targetNorm;
+        }) || null;
+
+      if (!element) {
+        element =
+          allInteractive.find((el) => {
+            const c = getCandidateText(el);
+            const fields = [c.text, c.aria, c.title, c.id, c.href].filter(Boolean);
+            return fields.some((f) => f.length > 0 && (f.includes(targetNorm) || targetNorm.includes(f)));
+          }) || null;
       }
     }
-    
+
+    // Strategy 3: Selector (only if it looks like a selector)
+    if (!element && /[.#\[\]()>:=]/.test(elementTarget)) {
+      try {
+        element = document.querySelector(elementTarget);
+        if (isInsideWidget(element)) element = null;
+      } catch {
+        // ignore
+      }
+    }
+
+    // Strategy 4 (SCROLL): headings/sections
+    if (!element && actionType === "SCROLL") {
+      const sections = Array.from(document.querySelectorAll("section, [id], h1, h2, h3, h4, h5, h6"))
+        .filter((el) => !isInsideWidget(el));
+      element =
+        sections.find((el) => {
+          const ht = el as HTMLElement;
+          const t = (ht.textContent || "").trim().toLowerCase();
+          const id = (ht.id || "").trim().toLowerCase();
+          return (t && t.includes(targetNorm)) || (id && id.includes(targetNorm));
+        }) || null;
+    }
+
     if (!element) {
-      console.warn(`Could not find element: ${target}`);
+      console.warn(`[A11y Widget] Could not find element for action: ${actionType} target: ${elementTarget}`);
       return;
     }
-    
-    switch (actionType.toUpperCase()) {
-      case 'CLICK':
-        (element as HTMLElement).click();
+
+    switch (actionType) {
+      case "CLICK":
+        if (element instanceof HTMLAnchorElement && element.href) {
+          if (element.target === "_blank") {
+            const win = window.open(element.href, "_blank");
+            if (!win) window.location.assign(element.href);
+          } else if (element.hasAttribute("download")) {
+            window.location.assign(element.href);
+          } else {
+            simulateClick(element);
+          }
+        } else {
+          simulateClick(element as HTMLElement);
+        }
         break;
-      case 'SCROLL':
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      case "SCROLL":
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
         break;
-      case 'FOCUS':
+      case "FOCUS":
         (element as HTMLElement).focus();
         break;
-      case 'FILL':
+      case "FILL":
         if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-          const valueMatch = action.match(/\[ACTION:FILL:(.+?):(.+?)\]/);
-          if (valueMatch) {
-            element.value = valueMatch[2];
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-          }
+          element.value = fillValue ?? "";
+          element.dispatchEvent(new Event("input", { bubbles: true }));
+          element.dispatchEvent(new Event("change", { bubbles: true }));
         }
         break;
     }
@@ -813,7 +929,7 @@ export function AccessibilityWidget() {
       }
 
       // Execute any actions in the response
-      const actionMatches = assistantContent.match(/\[ACTION:\w+:.+?\]/g);
+      const actionMatches = assistantContent.match(/\[ACTION:(CLICK|SCROLL|FOCUS|FILL):[^\]]+\]/gi);
       if (actionMatches) {
         actionMatches.forEach(action => {
           executeAction(action);
@@ -832,8 +948,8 @@ export function AccessibilityWidget() {
       // Speak the response if enabled (strip markdown, actions and suggestions for cleaner speech)
       // BUT only if screen reader is NOT detected (to avoid double speech)
       const cleanContent = stripMarkdown(assistantContent)
-        .replace(/\[ACTION:\w+:.+?\]/g, '')
-        .replace(/\[SUGGESTIONS:[^\]]*\]/g, '');
+        .replace(/\[ACTION:[^\]]*\]/g, '')
+        .replace(/\[SUGGESTIONS:[\s\S]*?\]/g, '');
       
       if (isSpeechEnabled && !screenReaderDetected && cleanContent.trim()) {
         speak(cleanContent);
@@ -1159,6 +1275,7 @@ export function AccessibilityWidget() {
       {/* Floating Button */}
       <button
         ref={widgetButtonRef}
+        data-a11y-widget-root="true"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed bottom-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
@@ -1184,6 +1301,7 @@ export function AccessibilityWidget() {
 
       {/* Chat Panel */}
       <div
+        data-a11y-widget-root="true"
         className={cn(
           "fixed bottom-24 z-50 w-[380px] max-w-[calc(100vw-48px)]",
           "rounded-2xl border border-border bg-card shadow-2xl",
