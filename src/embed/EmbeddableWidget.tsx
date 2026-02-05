@@ -126,22 +126,26 @@ function stripActionMarkers(text: string): string {
 
 // Strip [SUGGESTIONS:...] markers from content for display
 function stripSuggestionMarkers(text: string): string {
-  return text.replace(/\[SUGGESTIONS:[^\]]*\]/g, '').trim();
+  // Match [SUGGESTIONS:...] with any content inside, including newlines
+  return text.replace(/\[SUGGESTIONS:[^\]]*\]/gs, '').trim();
 }
 
 // Parse [SUGGESTIONS:label1|prompt1||label2|prompt2||...] from AI response
 function parseSuggestions(text: string): { label: string; prompt: string }[] {
-  const match = text.match(/\[SUGGESTIONS:([^\]]*)\]/);
+  // Match the SUGGESTIONS tag and capture its content
+  const match = text.match(/\[SUGGESTIONS:([^\]]*)\]/s);
   if (!match || !match[1]) return [];
   
-  const suggestionsStr = match[1];
+  const suggestionsStr = match[1].trim();
   const pairs = suggestionsStr.split('||');
   
   return pairs
     .map(pair => {
-      const [label, prompt] = pair.split('|');
+      const parts = pair.split('|');
+      const label = parts[0]?.trim();
+      const prompt = parts[1]?.trim();
       if (label && prompt) {
-        return { label: label.trim(), prompt: prompt.trim() };
+        return { label, prompt };
       }
       return null;
     })
