@@ -531,6 +531,7 @@ export function EmbeddableWidget({
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const srAnnouncementRef = useRef<HTMLDivElement>(null);
+  const widgetRootRef = useRef<HTMLDivElement>(null);
 
   const { speak, stop: stopSpeaking, isSpeaking, unlockAudio } = useSpeechSynthesis({
     rate: settings.speechRate,
@@ -981,6 +982,8 @@ export function EmbeddableWidget({
     const interactiveElements = Array.from(
       document.querySelectorAll("a, button, input, [role='button']")
     )
+      // Exclude the widget itself so the AI doesn't target its own UI
+      .filter((el) => !(widgetRootRef.current && widgetRootRef.current.contains(el)))
       .slice(0, 50)
       .map((el) => ({
         tag: el.tagName.toLowerCase(),
@@ -1000,6 +1003,59 @@ export function EmbeddableWidget({
     const actionRegex = /\[ACTION:(CLICK|SCROLL|FOCUS|FILL):([^\]]+)\]/gi;
     let match;
 
+    const isInsideWidget = (el: Element | null) =>
+      !!el && !!widgetRootRef.current && widgetRootRef.current.contains(el);
+
+    const simulateClick = (ht: HTMLElement) => {
+      try {
+        ht.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch {
+        // ignore
+      }
+
+      try {
+        ht.focus?.();
+      } catch {
+        // ignore
+      }
+
+      const rect = ht.getBoundingClientRect?.();
+      const clientX = rect ? rect.left + rect.width / 2 : 1;
+      const clientY = rect ? rect.top + rect.height / 2 : 1;
+
+      const base: MouseEventInit = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        clientX,
+        clientY,
+      };
+
+      try {
+        if (typeof PointerEvent !== "undefined") {
+          ht.dispatchEvent(new PointerEvent("pointerdown", { ...(base as any), pointerType: "mouse" }));
+          ht.dispatchEvent(new PointerEvent("pointerup", { ...(base as any), pointerType: "mouse" }));
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        ht.dispatchEvent(new MouseEvent("mousedown", base));
+        ht.dispatchEvent(new MouseEvent("mouseup", base));
+        ht.dispatchEvent(new MouseEvent("click", base));
+      } catch {
+        // ignore
+      }
+
+      try {
+        ht.click();
+      } catch {
+        // ignore
+      }
+    };
+
     while ((match = actionRegex.exec(text)) !== null) {
       const [, action, target] = match;
       const [elementTarget, fillValue] = target.split(":");
@@ -1014,6 +1070,7 @@ export function EmbeddableWidget({
         try {
           element = document.getElementById(elementTarget);
         } catch { /* ignore */ }
+        if (element && isInsideWidget(element)) element = null;
         
         // Strategy 2: Try aria-label match
         if (!element) {
@@ -1021,20 +1078,23 @@ export function EmbeddableWidget({
             element = document.querySelector(`[aria-label*="${elementTarget}" i]`);
           } catch { /* ignore */ }
         }
+        if (element && isInsideWidget(element)) element = null;
         
         // Strategy 3: Search all interactive elements by text content (most common case)
         if (!element) {
-          const allInteractive = document.querySelectorAll("a, button, [role='button'], [role='link'], input[type='submit'], input[type='button']");
+          const allInteractive = Array.from(
+            document.querySelectorAll("a, button, [role='button'], [role='link'], input[type='submit'], input[type='button']")
+          ).filter((el) => !isInsideWidget(el));
           
           // First try exact match
-          element = Array.from(allInteractive).find((el) => {
+          element = allInteractive.find((el) => {
             const text = el.textContent?.trim().toLowerCase() || "";
             return text === searchTerm;
           }) || null;
           
           // Then try contains match
           if (!element) {
-            element = Array.from(allInteractive).find((el) => {
+            element = allInteractive.find((el) => {
               const text = el.textContent?.trim().toLowerCase() || "";
               const ariaLabel = el.getAttribute("aria-label")?.toLowerCase() || "";
               const title = el.getAttribute("title")?.toLowerCase() || "";
@@ -1052,15 +1112,17 @@ export function EmbeddableWidget({
         // Strategy 4: Search all elements with IDs
         if (!element) {
           const elementsWithId = document.querySelectorAll("[id]");
-          element = Array.from(elementsWithId).find((el) =>
-            el.id.toLowerCase().includes(searchTerm)
-          ) || null;
+          element = Array.from(elementsWithId)
+            .filter((el) => !isInsideWidget(el))
+            .find((el) => el.id.toLowerCase().includes(searchTerm)) || null;
         }
         
         // Strategy 5: Search sections and headings for scroll targets
         if (!element && action.toUpperCase() === "SCROLL") {
           const sections = document.querySelectorAll("section, [id], h1, h2, h3, h4, h5, h6");
-          element = Array.from(sections).find((el) => {
+          element = Array.from(sections)
+            .filter((el) => !isInsideWidget(el))
+            .find((el) => {
             const text = el.textContent?.trim().toLowerCase() || "";
             const id = el.id?.toLowerCase() || "";
             return text.includes(searchTerm) || id.includes(searchTerm);
@@ -1076,15 +1138,17 @@ export function EmbeddableWidget({
               if (element instanceof HTMLAnchorElement && element.href) {
                 console.log(`[A11y Widget] Clicking link: ${element.href}`);
                 // Check if it's a download link
-                if (element.hasAttribute("download")) {
-                  element.click();
-                } else if (element.target === "_blank") {
-                  window.open(element.href, "_blank");
+                if (element.target === "_blank") {
+                  const win = window.open(element.href, "_blank");
+                  if (!win) window.location.assign(element.href);
+                } else if (element.hasAttribute("download")) {
+                  // Some browsers block programmatic downloads unless we navigate.
+                  window.location.assign(element.href);
                 } else {
-                  element.click();
+                  simulateClick(element);
                 }
               } else {
-                (element as HTMLElement).click();
+                simulateClick(element as HTMLElement);
               }
               break;
             case "SCROLL":
@@ -1286,7 +1350,7 @@ export function EmbeddableWidget({
   );
 
   return (
-    <div style={styles.container(position)}>
+    <div ref={widgetRootRef} data-a11y-widget-root="true" style={styles.container(position)}>
       {/* Screen reader announcement (visually hidden) */}
       <div
         ref={srAnnouncementRef}
