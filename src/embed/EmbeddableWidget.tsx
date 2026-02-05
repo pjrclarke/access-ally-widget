@@ -1003,33 +1003,89 @@ export function EmbeddableWidget({
     while ((match = actionRegex.exec(text)) !== null) {
       const [, action, target] = match;
       const [elementTarget, fillValue] = target.split(":");
+      const searchTerm = elementTarget.toLowerCase().trim();
+
+      console.log(`[A11y Widget] Attempting action: ${action} on "${elementTarget}"`);
 
       setTimeout(() => {
-        const selectors = [
-          `#${elementTarget}`,
-          `[aria-label*="${elementTarget}" i]`,
-        ];
-
         let element: Element | null = null;
-        for (const selector of selectors) {
+        
+        // Strategy 1: Try direct ID match
+        try {
+          element = document.getElementById(elementTarget);
+        } catch { /* ignore */ }
+        
+        // Strategy 2: Try aria-label match
+        if (!element) {
           try {
-            element = document.querySelector(selector);
-            if (element) break;
-          } catch {
-            const allElements = document.querySelectorAll("a, button, input, section, [id]");
-            element = Array.from(allElements).find(
-              (el) =>
-                el.textContent?.toLowerCase().includes(elementTarget.toLowerCase()) ||
-                el.id?.toLowerCase().includes(elementTarget.toLowerCase())
-            ) || null;
-            if (element) break;
+            element = document.querySelector(`[aria-label*="${elementTarget}" i]`);
+          } catch { /* ignore */ }
+        }
+        
+        // Strategy 3: Search all interactive elements by text content (most common case)
+        if (!element) {
+          const allInteractive = document.querySelectorAll("a, button, [role='button'], [role='link'], input[type='submit'], input[type='button']");
+          
+          // First try exact match
+          element = Array.from(allInteractive).find((el) => {
+            const text = el.textContent?.trim().toLowerCase() || "";
+            return text === searchTerm;
+          }) || null;
+          
+          // Then try contains match
+          if (!element) {
+            element = Array.from(allInteractive).find((el) => {
+              const text = el.textContent?.trim().toLowerCase() || "";
+              const ariaLabel = el.getAttribute("aria-label")?.toLowerCase() || "";
+              const title = el.getAttribute("title")?.toLowerCase() || "";
+              const href = (el as HTMLAnchorElement).href?.toLowerCase() || "";
+              
+              return text.includes(searchTerm) || 
+                     searchTerm.includes(text) ||
+                     ariaLabel.includes(searchTerm) ||
+                     title.includes(searchTerm) ||
+                     href.includes(searchTerm);
+            }) || null;
           }
+        }
+        
+        // Strategy 4: Search all elements with IDs
+        if (!element) {
+          const elementsWithId = document.querySelectorAll("[id]");
+          element = Array.from(elementsWithId).find((el) =>
+            el.id.toLowerCase().includes(searchTerm)
+          ) || null;
+        }
+        
+        // Strategy 5: Search sections and headings for scroll targets
+        if (!element && action.toUpperCase() === "SCROLL") {
+          const sections = document.querySelectorAll("section, [id], h1, h2, h3, h4, h5, h6");
+          element = Array.from(sections).find((el) => {
+            const text = el.textContent?.trim().toLowerCase() || "";
+            const id = el.id?.toLowerCase() || "";
+            return text.includes(searchTerm) || id.includes(searchTerm);
+          }) || null;
         }
 
         if (element) {
+          console.log(`[A11y Widget] Found element for "${elementTarget}":`, element);
+          
           switch (action.toUpperCase()) {
             case "CLICK":
-              (element as HTMLElement).click();
+              // For links, try to trigger navigation properly
+              if (element instanceof HTMLAnchorElement && element.href) {
+                console.log(`[A11y Widget] Clicking link: ${element.href}`);
+                // Check if it's a download link
+                if (element.hasAttribute("download")) {
+                  element.click();
+                } else if (element.target === "_blank") {
+                  window.open(element.href, "_blank");
+                } else {
+                  element.click();
+                }
+              } else {
+                (element as HTMLElement).click();
+              }
               break;
             case "SCROLL":
               element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1038,12 +1094,15 @@ export function EmbeddableWidget({
               (element as HTMLElement).focus();
               break;
             case "FILL":
-              if (element instanceof HTMLInputElement) {
+              if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
                 element.value = fillValue || "";
                 element.dispatchEvent(new Event("input", { bubbles: true }));
+                element.dispatchEvent(new Event("change", { bubbles: true }));
               }
               break;
           }
+        } else {
+          console.warn(`[A11y Widget] Could not find element for "${elementTarget}"`);
         }
       }, 500);
     }
