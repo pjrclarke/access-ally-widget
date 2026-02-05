@@ -79,7 +79,7 @@
     setTimeout(() => {
       const statusEl = document.getElementById('widget-status');
       if (window.A11yWidget) {
-        statusEl.textContent = '✓ Widget script loaded successfully!';
+        statusEl.textContent = '✓ Widget script loaded successfully! Version: ' + (window.A11yWidget.version || 'unknown');
         statusEl.className = 'status success';
       } else {
         statusEl.textContent = '⚠ Widget script not detected - check CDN URL';
