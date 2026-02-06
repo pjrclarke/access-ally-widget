@@ -121,14 +121,25 @@ function stripForSpeech(text: string): string {
 
 // Strip [ACTION:...] markers from content for display
 function stripActionMarkers(text: string): string {
-  // Includes both valid action tags ([ACTION:CLICK:...]) and any malformed/legacy ones.
-  return text.replace(/\[ACTION:[^\]]*\]/gs, "").trim();
+  return text
+    // Remove any [ACTION:...] markers (including malformed ones)
+    .replace(/\[ACTION:[^\]]*\]/gis, '')
+    // Remove common AI output artifacts like }] or [{ or stray brackets
+    .replace(/^\s*[\[\{}\]]+\s*/g, '')
+    .replace(/\s*[\[\{}\]]+\s*$/g, '')
+    // Remove patterns like }] or [{ in the middle of text
+    .replace(/\s*[\}\]]+\s*[\[\{]*\s*/g, ' ')
+    // Remove em-dashes that might appear
+    .replace(/—/g, ' - ')
+    // Clean up multiple spaces
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // Strip [SUGGESTIONS:...] markers from content for display
 function stripSuggestionMarkers(text: string): string {
   // Match [SUGGESTIONS:...] with any content inside, including newlines
-  return text.replace(/\[SUGGESTIONS:[^\]]*\]/gs, '').trim();
+  return text.replace(/\[SUGGESTIONS:[\s\S]*?\]/gi, '').trim();
 }
 
 // Parse [SUGGESTIONS:label1|prompt1||label2|prompt2||...] from AI response
@@ -156,19 +167,21 @@ function parseSuggestions(text: string): { label: string; prompt: string }[] {
 
 // Clean all special markers from display text
 function cleanDisplayText(text: string): string {
-  return stripSuggestionMarkers(stripActionMarkers(stripForSpeech(text)));
+  return stripSuggestionMarkers(stripActionMarkers(text))
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // Generate contextual action suggestions based on assistant's last message
 function getContextualActions(lastMessage: string): { label: string; prompt: string }[] {
   const lowerMsg = lastMessage.toLowerCase();
   
-  // Default actions that are always useful
+  // Default actions - Navigation first for VoiceOver users
   const defaultActions = [
-    { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
+    { label: "🧭 Navigation items", prompt: "Read out all the menu and navigation options on this page" },
     { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
-    { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
     { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
+    { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
   ];
   
   // Contextual actions based on what the AI just said
@@ -577,12 +590,17 @@ export function EmbeddableWidget({
   }, [hasAnnouncedOnboarding]);
 
   // Generate welcome message for when widget opens (user-initiated)
+  // Conversational, natural tone for VoiceOver users
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your instructions. I can summarise this page, read out the menu options, find downloadable links, or read the page headings to help you navigate.`;
+    return `Welcome to the accessibility assistant for ${domain}. I can help you navigate this page, read out the menu options, summarise content, or find downloadable files. How can I help you today?`;
   }, []);
 
+  // Ref for focusing the welcome message
+  const welcomeMessageRef = useRef<HTMLDivElement>(null);
+  
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
+  // VoiceOver focus order: welcome message → suggestions prompt → input
   useEffect(() => {
     if (isOpen && !hasShownWelcome && messages.length === 0) {
       setHasShownWelcome(true);
@@ -594,6 +612,13 @@ export function EmbeddableWidget({
         unlockAudio();
         speak(welcomeMessage);
       }
+      
+      // Focus the welcome message for screen readers
+      setTimeout(() => {
+        if (welcomeMessageRef.current) {
+          welcomeMessageRef.current.focus();
+        }
+      }, 150);
     }
   }, [isOpen, hasShownWelcome, messages.length, getWelcomeMessage, isSpeechEnabled, chatMode, isSpeechRecognitionSupported, unlockAudio, speak]);
 
@@ -1559,33 +1584,55 @@ export function EmbeddableWidget({
             </div>
 
             <div style={{ ...styles.messages, height: "260px" }} role="log" aria-live="polite" aria-label="Chat messages">
-              {messages.map((msg, i) => (
-                <div key={i} style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}>
-                  {msg.content}
-                </div>
-              ))}
+              {messages.map((msg, i) => {
+                const isFirstWelcome = msg.role === "assistant" && i === 0 && messages.length === 1;
+                return (
+                  <div 
+                    key={i} 
+                    ref={isFirstWelcome ? welcomeMessageRef : undefined}
+                    tabIndex={isFirstWelcome ? -1 : undefined}
+                    aria-label={isFirstWelcome ? `Assistant: ${msg.content}` : undefined}
+                    style={msg.role === "user" ? styles.userMessage : styles.assistantMessage()}
+                  >
+                    {msg.content}
+                  </div>
+                );
+              })}
               {/* Contextual action buttons - shown after every AI reply */}
               {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: "12px", paddingBottom: "4px" }}>
-                  <p style={{ fontSize: "11px", color: "#6b7280", marginBottom: "8px" }}>
-                    Select from the following actions, or type what you'd like to do:
+                  <p 
+                    style={{ fontSize: "11px", color: "#6b7280", marginBottom: "8px" }}
+                    tabIndex={-1}
+                    aria-label="What would you like to do? Swipe to hear options, or type what you need."
+                  >
+                    What would you like to do?
                   </p>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "300px" }}>
+                  <div 
+                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", width: "100%", maxWidth: "300px" }}
+                    role="group"
+                    aria-label="Quick actions. Swipe to hear options, or type your own request."
+                  >
                     {/* Use dynamic AI suggestions if available, otherwise fall back to contextual actions */}
                     {(dynamicSuggestions.length > 0 
                       ? dynamicSuggestions 
                       : getContextualActions(messages[messages.length - 1]?.content || "")
-                    ).map((action, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => sendQuickMessage(action.prompt)}
-                        style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
-                        aria-label={action.label}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
+                    ).map((action, idx) => {
+                      // Strip emojis for screen reader - use clean label
+                      const cleanLabel = action.label.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu, '').trim();
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => sendQuickMessage(action.prompt)}
+                          style={{ padding: "8px 10px", fontSize: "11px", borderRadius: "8px", background: `${primaryColor}15`, border: `1px solid ${primaryColor}50`, cursor: "pointer", textAlign: "left", color: "#1f2937", fontWeight: 500 }}
+                          aria-label={cleanLabel}
+                        >
+                          <span aria-hidden="true">{action.label}</span>
+                          <span style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", border: 0 }}>{cleanLabel}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
