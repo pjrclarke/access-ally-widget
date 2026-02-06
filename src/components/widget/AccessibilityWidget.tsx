@@ -537,12 +537,14 @@ export function AccessibilityWidget() {
   }, [hasAnnouncedOnboarding]);
 
   // Generate welcome message for when widget opens (user-initiated)
+  // Conversational, natural tone for VoiceOver users
   const getWelcomeMessage = useCallback(() => {
     const domain = getCleanDomain();
-    return `Welcome to the accessibility assistant for ${domain}. Type what you'd like me to help with, or switch to voice mode to speak your instructions. I can summarise this page, read out the menu options, find downloadable links, or read the page headings to help you navigate.`;
+    return `Welcome to the accessibility assistant for ${domain}. I can help you navigate this page, read out the menu options, summarise content, or find downloadable files. How can I help you today?`;
   }, []);
 
   // Show welcome when widget opens (user-initiated, not auto-TTS on load)
+  // VoiceOver focus order: welcome message → suggestions prompt → input
   useEffect(() => {
     if (isOpen && !hasShownWelcome && messages.length === 0) {
       setHasShownWelcome(true);
@@ -554,10 +556,15 @@ export function AccessibilityWidget() {
         unlockAudio();
         speak(welcomeMessage);
       }
-    }
-    
-    // Focus input when in text mode
-    if (isOpen && chatMode === "text") {
+      
+      // Focus the welcome message for screen readers, then let natural tab flow continue
+      setTimeout(() => {
+        if (latestResponseRef.current) {
+          latestResponseRef.current.focus();
+        }
+      }, 150);
+    } else if (isOpen && chatMode === "text" && hasShownWelcome) {
+      // After welcome, focus input for text mode
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, hasShownWelcome, messages.length, getWelcomeMessage, isSpeechEnabled, chatMode, isVoiceSupported, unlockAudio, speak]);
@@ -1585,8 +1592,13 @@ export function AccessibilityWidget() {
               {/* Contextual action buttons - shown after every AI reply */}
               {messages.length > 0 && messages[messages.length - 1]?.role === "assistant" && !isLoading && currentSuggestions.length > 0 && (
                 <div className="flex flex-col items-center pt-3 pb-1">
-                  <p className="text-xs text-muted-foreground mb-2" id="suggestions-label">
-                    What would you like to do next?
+                  <p 
+                    className="text-xs text-muted-foreground mb-2" 
+                    id="suggestions-label"
+                    tabIndex={-1}
+                    aria-label="What would you like to do? Swipe to hear options, or type what you need."
+                  >
+                    What would you like to do?
                   </p>
                   <div 
                     className={cn(
@@ -1594,7 +1606,7 @@ export function AccessibilityWidget() {
                       currentSuggestions.length <= 3 ? "grid-cols-1 max-w-[200px]" : "grid-cols-2 max-w-[300px]"
                     )}
                     role="group"
-                    aria-labelledby="suggestions-label"
+                    aria-label="Quick actions. Swipe to hear options, or type your own request."
                   >
                     {currentSuggestions.map((action, idx) => {
                       // Strip emojis for screen reader label, but keep visual display
