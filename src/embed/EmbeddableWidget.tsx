@@ -138,8 +138,12 @@ function stripActionMarkers(text: string): string {
 
 // Strip [SUGGESTIONS:...] markers from content for display
 function stripSuggestionMarkers(text: string): string {
-  // Match [SUGGESTIONS:...] with any content inside, including newlines
-  return text.replace(/\[SUGGESTIONS:[\s\S]*?\]/gi, '').trim();
+  // Match [SUGGESTIONS:...] with any content inside (greedy to catch incomplete tags)
+  // Also handle cases where closing bracket is missing
+  return text
+    .replace(/\[SUGGESTIONS:[^\]]*\]/gi, '')
+    .replace(/\[SUGGESTIONS:.*$/gis, '')
+    .trim();
 }
 
 // Parse [SUGGESTIONS:label1|prompt1||label2|prompt2||...] from AI response
