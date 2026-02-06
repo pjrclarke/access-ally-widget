@@ -198,14 +198,17 @@ Content: ${validatedPageContent || "Not available"}
 Clickable elements: ${validatedInteractiveElements || "None found"}
 
 ACTIONS (include ONLY when you will perform an action):
-[ACTION:CLICK:element_text] - to click a button or link
-[ACTION:SCROLL:section_name] - to scroll to a section
-[ACTION:FOCUS:field_name] - to focus on a form field
-[ACTION:FILL:field_name:value] - to fill in a form field
+Valid action tags are ONLY these four:
+[ACTION:CLICK:element_text]
+[ACTION:SCROLL:section_name]
+[ACTION:FOCUS:field_name]
+[ACTION:FILL:field_name:value]
+
+NEVER output any other [ACTION:...] format (for example, NEVER output [ACTION:label|prompt||...]). Suggestions must use [SUGGESTIONS:...].
 
 When the user asks you to click something, navigate somewhere, or perform an action:
 1. Find the matching element in the clickable elements list above
-2. Include the appropriate [ACTION:...] tag with the exact element text
+2. Include the appropriate [ACTION:...] tag with the exact element text (or section/field name)
 3. Briefly confirm what you are doing
 
 SUGGESTED ACTIONS:
