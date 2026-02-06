@@ -192,8 +192,8 @@ const WIDGET_ROOT_SELECTOR = "[data-a11y-widget-root]";
 // Default suggestions for the initial welcome message
 function getDefaultSuggestions(): { label: string; prompt: string }[] {
   return [
+    { label: "🧭 Navigation items", prompt: "Read out all the menu and navigation options on this page" },
     { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
-    { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
     { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
   ];
 }
@@ -626,6 +626,30 @@ export function AccessibilityWidget() {
       return { text, aria, title, id, href };
     };
 
+    const isClickableElement = (el: Element | null): el is HTMLElement => {
+      if (!el || isInsideWidget(el)) return false;
+      const ht = el as HTMLElement;
+      const tag = (ht.tagName || "").toLowerCase();
+      const role = (ht.getAttribute("role") || "").toLowerCase();
+
+      if (tag === "a" || tag === "button") return true;
+      if (tag === "input") {
+        const t = ((ht as HTMLInputElement).type || "").toLowerCase();
+        return t === "button" || t === "submit" || t === "reset" || t === "image";
+      }
+
+      return role === "button" || role === "link";
+    };
+
+    const isFocusableElement = (el: Element | null): el is HTMLElement => {
+      if (!el || isInsideWidget(el)) return false;
+      const ht = el as HTMLElement;
+      const tag = (ht.tagName || "").toLowerCase();
+      if (["input", "textarea", "select", "button", "a"].includes(tag)) return true;
+      const tabindex = ht.getAttribute("tabindex");
+      return tabindex !== null && tabindex !== "-1";
+    };
+
     const simulateClick = (ht: HTMLElement) => {
       try {
         ht.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -678,9 +702,11 @@ export function AccessibilityWidget() {
 
     let element: Element | null = null;
 
-    // Strategy 1: Try by ID
+    // Strategy 1: Try by ID (but only treat it as a match if it makes sense for the action)
     element = document.getElementById(elementTarget);
     if (isInsideWidget(element)) element = null;
+    if (actionType === "CLICK" && element && !isClickableElement(element)) element = null;
+    if (actionType === "FOCUS" && element && !isFocusableElement(element)) element = null;
 
     // Strategy 2: Exact/contains match on interactive elements
     if (!element) {
@@ -711,6 +737,8 @@ export function AccessibilityWidget() {
       try {
         element = document.querySelector(elementTarget);
         if (isInsideWidget(element)) element = null;
+        if (actionType === "CLICK" && element && !isClickableElement(element)) element = null;
+        if (actionType === "FOCUS" && element && !isFocusableElement(element)) element = null;
       } catch {
         // ignore
       }
@@ -735,13 +763,43 @@ export function AccessibilityWidget() {
     }
 
     switch (actionType) {
-      case "CLICK":
-        if (element instanceof HTMLAnchorElement && element.href) {
-          if (element.target === "_blank") {
-            const win = window.open(element.href, "_blank");
-            if (!win) window.location.assign(element.href);
-          } else if (element.hasAttribute("download")) {
-            window.location.assign(element.href);
+      case "CLICK": {
+        if (element instanceof HTMLAnchorElement) {
+          const rawHref = (element.getAttribute("href") || "").trim();
+
+          // Handle same-page anchor navigation reliably (common for "Projects", "Pricing", etc.)
+          if (rawHref.startsWith("#") && rawHref.length > 1) {
+            const targetEl = document.querySelector(rawHref);
+            if (targetEl && !isInsideWidget(targetEl)) {
+              targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+              try {
+                window.location.hash = rawHref;
+              } catch {
+                // ignore
+              }
+              break;
+            }
+          }
+
+          if (element.href) {
+            if (element.target === "_blank") {
+              const win = window.open(element.href, "_blank");
+              if (!win) window.location.assign(element.href);
+            } else if (element.hasAttribute("download")) {
+              window.location.assign(element.href);
+            } else {
+              simulateClick(element);
+            }
+          } else {
+            simulateClick(element);
+          }
+        } else if (
+          element instanceof HTMLButtonElement &&
+          (element.type || "").toLowerCase() === "submit"
+        ) {
+          const form = element.closest("form");
+          if (form && "requestSubmit" in form) {
+            (form as HTMLFormElement).requestSubmit();
           } else {
             simulateClick(element);
           }
@@ -749,6 +807,7 @@ export function AccessibilityWidget() {
           simulateClick(element as HTMLElement);
         }
         break;
+      }
       case "SCROLL":
         element.scrollIntoView({ behavior: "smooth", block: "center" });
         break;

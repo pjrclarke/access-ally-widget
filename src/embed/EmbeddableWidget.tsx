@@ -121,7 +121,8 @@ function stripForSpeech(text: string): string {
 
 // Strip [ACTION:...] markers from content for display
 function stripActionMarkers(text: string): string {
-  return text.replace(/\[ACTION:\w+:[^\]]+\]/g, '').trim();
+  // Includes both valid action tags ([ACTION:CLICK:...]) and any malformed/legacy ones.
+  return text.replace(/\[ACTION:[^\]]*\]/gs, "").trim();
 }
 
 // Strip [SUGGESTIONS:...] markers from content for display
@@ -131,22 +132,22 @@ function stripSuggestionMarkers(text: string): string {
 }
 
 // Parse [SUGGESTIONS:label1|prompt1||label2|prompt2||...] from AI response
+// Also tolerates legacy/malformed blocks like: [ACTION:label||label2|prompt2]
 function parseSuggestions(text: string): { label: string; prompt: string }[] {
-  // Match the SUGGESTIONS tag and capture its content
   const match = text.match(/\[SUGGESTIONS:([^\]]*)\]/s);
-  if (!match || !match[1]) return [];
-  
-  const suggestionsStr = match[1].trim();
-  const pairs = suggestionsStr.split('||');
-  
+  const legacyMatch = text.match(/\[ACTION:(?!CLICK|SCROLL|FOCUS|FILL)([^\]]*)\]/s);
+
+  const suggestionsStr = (match?.[1] ?? legacyMatch?.[1] ?? "").trim();
+  if (!suggestionsStr) return [];
+
+  const pairs = suggestionsStr.split("||");
+
   return pairs
-    .map(pair => {
-      const parts = pair.split('|');
+    .map((pair) => {
+      const parts = pair.split("|");
       const label = parts[0]?.trim();
-      const prompt = parts[1]?.trim();
-      if (label && prompt) {
-        return { label, prompt };
-      }
+      const prompt = (parts[1] ?? parts[0])?.trim();
+      if (label && prompt) return { label, prompt };
       return null;
     })
     .filter((s): s is { label: string; prompt: string } => s !== null)
@@ -164,8 +165,8 @@ function getContextualActions(lastMessage: string): { label: string; prompt: str
   
   // Default actions that are always useful
   const defaultActions = [
-    { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
     { label: "🗂️ Menu options", prompt: "Read out all the menu and navigation options on this page" },
+    { label: "📄 Summarise page", prompt: "Summarise this page for me in a clear, concise way" },
     { label: "📥 Find downloads", prompt: "Find and list all downloadable files and document links on this page" },
     { label: "📑 Page headings", prompt: "Read out all the headings on this page to help me understand the structure" },
   ];
@@ -1063,20 +1064,60 @@ export function EmbeddableWidget({
 
       console.log(`[A11y Widget] Attempting action: ${action} on "${elementTarget}"`);
 
-      setTimeout(() => {
-        let element: Element | null = null;
-        
-        // Strategy 1: Try direct ID match
-        try {
-          element = document.getElementById(elementTarget);
-        } catch { /* ignore */ }
-        if (element && isInsideWidget(element)) element = null;
-        
-        // Strategy 2: Try aria-label match
+       setTimeout(() => {
+         let element: Element | null = null;
+
+         const isClickableEl = (el: Element | null): el is HTMLElement => {
+           if (!el || isInsideWidget(el)) return false;
+           const ht = el as HTMLElement;
+           const tag = (ht.tagName || "").toLowerCase();
+           const role = (ht.getAttribute("role") || "").toLowerCase();
+           if (tag === "a" || tag === "button") return true;
+           if (tag === "input") {
+             const t = ((ht as HTMLInputElement).type || "").toLowerCase();
+             return t === "button" || t === "submit" || t === "reset" || t === "image";
+           }
+           return role === "button" || role === "link";
+         };
+
+         const isFocusableEl = (el: Element | null): el is HTMLElement => {
+           if (!el || isInsideWidget(el)) return false;
+           const ht = el as HTMLElement;
+           const tag = (ht.tagName || "").toLowerCase();
+           if (["input", "textarea", "select", "button", "a"].includes(tag)) return true;
+           const tabindex = ht.getAttribute("tabindex");
+           return tabindex !== null && tabindex !== "-1";
+         };
+         
+         // Strategy 1: Try direct ID match
+         try {
+           element = document.getElementById(elementTarget);
+         } catch { /* ignore */ }
+         if (element && isInsideWidget(element)) element = null;
+         if (action.toUpperCase() === "CLICK" && element && !isClickableEl(element)) element = null;
+         if (action.toUpperCase() === "FOCUS" && element && !isFocusableEl(element)) element = null;
+        // Strategy 2: Try aria-label match (interactive elements only)
         if (!element) {
           try {
-            element = document.querySelector(`[aria-label*="${elementTarget}" i]`);
-          } catch { /* ignore */ }
+            const candidates = Array.from(
+              document.querySelectorAll(
+                "a[aria-label], button[aria-label], [role='button'][aria-label], [role='link'][aria-label], input[type='submit'][aria-label], input[type='button'][aria-label]"
+              )
+            ).filter((el) => !isInsideWidget(el));
+
+            element =
+              candidates.find((el) => {
+                const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
+                return aria === searchTerm;
+              }) ||
+              candidates.find((el) => {
+                const aria = (el.getAttribute("aria-label") || "").trim().toLowerCase();
+                return aria.includes(searchTerm);
+              }) ||
+              null;
+          } catch {
+            /* ignore */
+          }
         }
         if (element && isInsideWidget(element)) element = null;
         
@@ -1109,12 +1150,17 @@ export function EmbeddableWidget({
           }
         }
         
-        // Strategy 4: Search all elements with IDs
-        if (!element) {
+        // Strategy 4: Search all elements with IDs (useful for SCROLL/FOCUS targets; avoid for CLICK)
+        if (!element && action.toUpperCase() !== "CLICK") {
           const elementsWithId = document.querySelectorAll("[id]");
-          element = Array.from(elementsWithId)
-            .filter((el) => !isInsideWidget(el))
-            .find((el) => el.id.toLowerCase().includes(searchTerm)) || null;
+          element =
+            Array.from(elementsWithId)
+              .filter((el) => !isInsideWidget(el))
+              .find((el) => el.id.toLowerCase().includes(searchTerm)) || null;
+
+          if (action.toUpperCase() === "FOCUS" && element && !isFocusableEl(element)) {
+            element = null;
+          }
         }
         
         // Strategy 5: Search sections and headings for scroll targets
@@ -1133,17 +1179,45 @@ export function EmbeddableWidget({
           console.log(`[A11y Widget] Found element for "${elementTarget}":`, element);
           
           switch (action.toUpperCase()) {
-            case "CLICK":
-              // For links, try to trigger navigation properly
-              if (element instanceof HTMLAnchorElement && element.href) {
-                console.log(`[A11y Widget] Clicking link: ${element.href}`);
-                // Check if it's a download link
-                if (element.target === "_blank") {
-                  const win = window.open(element.href, "_blank");
-                  if (!win) window.location.assign(element.href);
-                } else if (element.hasAttribute("download")) {
-                  // Some browsers block programmatic downloads unless we navigate.
-                  window.location.assign(element.href);
+            case "CLICK": {
+              if (element instanceof HTMLAnchorElement) {
+                const rawHref = (element.getAttribute("href") || "").trim();
+
+                // Handle same-page anchor navigation reliably (common on portfolio sites)
+                if (rawHref.startsWith("#") && rawHref.length > 1) {
+                  const targetEl = document.querySelector(rawHref);
+                  if (targetEl && !isInsideWidget(targetEl)) {
+                    targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+                    try {
+                      window.location.hash = rawHref;
+                    } catch {
+                      // ignore
+                    }
+                    break;
+                  }
+                }
+
+                if (element.href) {
+                  console.log(`[A11y Widget] Clicking link: ${element.href}`);
+                  if (element.target === "_blank") {
+                    const win = window.open(element.href, "_blank");
+                    if (!win) window.location.assign(element.href);
+                  } else if (element.hasAttribute("download")) {
+                    // Some browsers block programmatic downloads unless we navigate.
+                    window.location.assign(element.href);
+                  } else {
+                    simulateClick(element);
+                  }
+                } else {
+                  simulateClick(element);
+                }
+              } else if (
+                element instanceof HTMLButtonElement &&
+                (element.type || "").toLowerCase() === "submit"
+              ) {
+                const form = element.closest("form");
+                if (form && "requestSubmit" in form) {
+                  (form as HTMLFormElement).requestSubmit();
                 } else {
                   simulateClick(element);
                 }
@@ -1151,6 +1225,7 @@ export function EmbeddableWidget({
                 simulateClick(element as HTMLElement);
               }
               break;
+            }
             case "SCROLL":
               element.scrollIntoView({ behavior: "smooth", block: "start" });
               break;
