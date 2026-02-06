@@ -153,8 +153,9 @@ function stripActionMarkers(text: string): string {
   return text
     // Remove any [ACTION:...] markers (including malformed ones)
     .replace(/\[ACTION:[^\]]*\]/gis, '')
-    // Remove [SUGGESTIONS:...] block (allow multiline)
-    .replace(/\[SUGGESTIONS:[\s\S]*?\]/gi, '')
+    // Remove [SUGGESTIONS:...] block (with or without closing bracket)
+    .replace(/\[SUGGESTIONS:[^\]]*\]/gi, '')
+    .replace(/\[SUGGESTIONS:.*$/gis, '')
     // Remove common AI output artifacts like }] or [{ or stray brackets
     .replace(/^\s*[\[\{}\]]+\s*/g, '')
     .replace(/\s*[\[\{}\]]+\s*$/g, '')
